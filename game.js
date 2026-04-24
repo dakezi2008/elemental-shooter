@@ -145,22 +145,24 @@ class Game {
             this.touch.active = false;
         };
         
-        // 鼠标控制 - 类似触摸
+        // 鼠标控制 - 鼠标移动即可控制，无需按住
         const handleMouseMove = (e) => {
             if (this.state !== GameState.PLAYING) return;
             this.mouse.x = e.clientX;
             this.mouse.y = e.clientY;
+            // 鼠标移动时自动激活控制
+            this.mouse.active = true;
         };
         
-        const handleMouseDown = (e) => {
-            if (this.state !== GameState.PLAYING) return;
-            // 忽略技能按钮区域的点击
-            if (e.target.closest('.skill-buttons')) return;
-            this.mouse.down = true;
+        // 鼠标离开窗口时停止控制
+        const handleMouseLeave = () => {
+            this.mouse.active = false;
         };
         
-        const handleMouseUp = () => {
-            this.mouse.down = false;
+        const handleMouseEnter = () => {
+            if (this.state === GameState.PLAYING) {
+                this.mouse.active = true;
+            }
         };
         
         // 绑定到整个文档以实现全屏控制
@@ -170,8 +172,8 @@ class Game {
         document.addEventListener('touchcancel', handleTouchEnd);
         
         document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mousedown', handleMouseDown);
-        document.addEventListener('mouseup', handleMouseUp);
+        document.addEventListener('mouseleave', handleMouseLeave);
+        document.addEventListener('mouseenter', handleMouseEnter);
     }
     
     start(selectedTalents) {
@@ -581,8 +583,8 @@ class Player {
             }
         }
         
-        // 鼠标控制 - 按住鼠标时向鼠标位置移动
-        if (game.mouse.down && !usingTouchOrMouse) {
+        // 鼠标控制 - 鼠标移动即可控制，无需按住
+        if (game.mouse.active && !usingTouchOrMouse) {
             const targetX = game.mouse.x;
             const targetY = game.mouse.y;
             const diffX = targetX - this.x;
