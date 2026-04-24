@@ -210,6 +210,8 @@ class Game {
         
         this.lastSpawnTime = 0;
         this.bossSpawned = false;
+        this.miniBossSpawned = [];  // 记录已生成的小BOSS时间点
+        this.nextMiniBossTime = 30;  // 第一个小BOSS在30秒时出现
         
         this.updateUI();
         this.setupSkillButtons();
@@ -274,17 +276,22 @@ class Game {
             0.15 + levelBonus * 0.3,           // tank增加
             0.1 + levelBonus * 0.2             // shooter增加
         ];
-        const type = this.weightedRandom(types, weights);
-        const x = Math.random() * (this.width - 60) + 30;
-        this.enemies.push(new Enemy(x, -50, type, this.level));
         
-        // 高等级时额外生成敌人
-        if (this.level >= 5 && Math.random() < 0.3) {
+        // 基础生成2-3个敌人
+        const enemyCount = 2 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < enemyCount; i++) {
+            const type = this.weightedRandom(types, weights);
+            const x = Math.random() * (this.width - 60) + 30;
+            this.enemies.push(new Enemy(x, -50 - i * 40, type, this.level));
+        }
+        
+        // 高等级时额外生成更多敌人
+        if (this.level >= 3 && Math.random() < 0.4) {
             const x2 = Math.random() * (this.width - 60) + 30;
             const type2 = this.weightedRandom(types, weights);
             this.enemies.push(new Enemy(x2, -50, type2, this.level));
         }
-        if (this.level >= 10 && Math.random() < 0.2) {
+        if (this.level >= 8 && Math.random() < 0.3) {
             const x3 = Math.random() * (this.width - 60) + 30;
             const type3 = this.weightedRandom(types, weights);
             this.enemies.push(new Enemy(x3, -50, type3, this.level));
@@ -292,13 +299,39 @@ class Game {
     }
     
     spawnBoss() {
-        this.boss = new Boss(this.width / 2, -100);
+        this.boss = new Boss(this.width / 2, -100, false);  // false表示大BOSS
         this.bossSpawned = true;
         document.getElementById('bossHud').classList.add('active');
         document.getElementById('warningText').classList.add('active');
         setTimeout(() => {
             document.getElementById('warningText').classList.remove('active');
         }, 3000);
+    }
+    
+    spawnMiniBoss() {
+        // 生成小BOSS，血量3000
+        const miniBoss = new Boss(this.width / 2, -100, true);  // true表示小BOSS
+        miniBoss.maxHealth = 3000;
+        miniBoss.health = 3000;
+        miniBoss.size = 100;
+        miniBoss.radius = 50;
+        miniBoss.name = '精英守卫';
+        this.boss = miniBoss;
+        
+        // 显示警告
+        const warningText = document.getElementById('warningText');
+        if (warningText) {
+            warningText.textContent = '⚠️ 精英守卫出现！';
+            warningText.classList.add('active');
+            setTimeout(() => {
+                warningText.classList.remove('active');
+                warningText.textContent = '⚠️ 警告：BOSS出现！';
+            }, 3000);
+        }
+        
+        document.getElementById('bossHud').classList.add('active');
+        this.miniBossSpawned.push(this.nextMiniBossTime);
+        this.nextMiniBossTime += 30;  // 下一个小BOSS在30秒后
     }
     
     weightedRandom(items, weights) {
@@ -369,6 +402,9 @@ class Game {
         
         if (this.player && healthEl) {
             healthEl.style.width = (this.player.health / this.player.maxHealth * 100) + '%';
+            // 显示剩余生命
+            const livesEl = document.getElementById('livesText');
+            if (livesEl) livesEl.textContent = '❤️'.repeat(this.player.lives);
         }
         
         const nextLevelXP = CONFIG.XP_PER_LEVEL[this.level] || CONFIG.XP_PER_LEVEL[CONFIG.XP_PER_LEVEL.length - 1];
@@ -416,6 +452,13 @@ class Game {
             return;
         }
         
+        // 检查是否需要生成小BOSS（每30秒一个）
+        const elapsedTime = CONFIG.GAME_DURATION - this.gameTime;
+        if (!this.boss && elapsedTime >= this.nextMiniBossTime && !this.bossSpawned) {
+            this.spawnMiniBoss();
+        }
+        
+        // 检查是否需要生成大BOSS（2分钟时）
         if (!this.bossSpawned && this.gameTime <= CONFIG.GAME_DURATION - CONFIG.BOSS_SPAWN_TIME) {
             this.spawnBoss();
         }
@@ -532,31 +575,91 @@ class Game {
     }
     
     drawBackground() {
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-        for (let i = 0; i < 50; i++) {
-            const x = (i * 137.5 + this.gameTime * 10) % this.width;
-            const y = (i * 73.3 + this.gameTime * 20) % this.height;
-            const size = (i % 3) + 1;
-            this.ctx.fillRect(x, y, size, size);
+        const ctx = this.ctx;
+        const time = this.gameTime;
+        
+        // 绘制渐变背景
+        const gradient = ctx.createLinearGradient(0, 0, 0, this.height);
+        gradient.addColorStop(0, '#0a0a1a');
+        gradient.addColorStop(0.5, '#1a1a3a');
+        gradient.addColorStop(1, '#0f0f2f');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, this.width, this.height);
+        
+        // 绘制星星背景
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        for (let i = 0; i < 80; i++) {
+            const x = (i * 137.5 + time * 5) % this.width;
+            const y = (i * 73.3 + time * 8) % this.height;
+            const size = (i % 3) * 0.5 + 0.5;
+            const twinkle = Math.sin(time * 2 + i) * 0.3 + 0.7;
+            ctx.globalAlpha = twinkle;
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        
+        // 绘制星云效果
+        for (let i = 0; i < 5; i++) {
+            const x = (i * 200 + time * 3) % (this.width + 200) - 100;
+            const y = (i * 150 + time * 2) % (this.height + 200) - 100;
+            const nebulaGradient = ctx.createRadialGradient(x, y, 0, x, y, 150);
+            const colors = ['rgba(102, 126, 234, 0.15)', 'rgba(118, 75, 162, 0.1)', 'rgba(255, 99, 132, 0.08)'];
+            nebulaGradient.addColorStop(0, colors[i % 3]);
+            nebulaGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = nebulaGradient;
+            ctx.beginPath();
+            ctx.arc(x, y, 150, 0, Math.PI * 2);
+            ctx.fill();
         }
         
-        this.ctx.strokeStyle = 'rgba(102, 126, 234, 0.1)';
-        this.ctx.lineWidth = 1;
-        const gridSize = 50;
-        const offset = (this.gameTime * 30) % gridSize;
+        // 绘制流动的能量线
+        ctx.strokeStyle = 'rgba(102, 126, 234, 0.2)';
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'rgba(102, 126, 234, 0.5)';
+        
+        for (let i = 0; i < 8; i++) {
+            const y = (i * this.height / 8 + time * 20) % this.height;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            
+            for (let x = 0; x < this.width; x += 20) {
+                const waveY = y + Math.sin((x + time * 50) * 0.01 + i) * 10;
+                ctx.lineTo(x, waveY);
+            }
+            ctx.stroke();
+        }
+        
+        ctx.shadowBlur = 0;
+        
+        // 绘制底部能量场
+        const bottomGradient = ctx.createLinearGradient(0, this.height - 100, 0, this.height);
+        bottomGradient.addColorStop(0, 'rgba(102, 126, 234, 0)');
+        bottomGradient.addColorStop(0.5, 'rgba(102, 126, 234, 0.1)');
+        bottomGradient.addColorStop(1, 'rgba(102, 126, 234, 0.3)');
+        ctx.fillStyle = bottomGradient;
+        ctx.fillRect(0, this.height - 100, this.width, 100);
+        
+        // 绘制网格线（更淡）
+        ctx.strokeStyle = 'rgba(102, 126, 234, 0.05)';
+        ctx.lineWidth = 1;
+        const gridSize = 60;
+        const offset = (time * 20) % gridSize;
         
         for (let x = 0; x < this.width; x += gridSize) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, 0);
-            this.ctx.lineTo(x, this.height);
-            this.ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, this.height);
+            ctx.stroke();
         }
         
         for (let y = offset; y < this.height; y += gridSize) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, y);
-            this.ctx.lineTo(this.width, y);
-            this.ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(this.width, y);
+            ctx.stroke();
         }
     }
 }
@@ -571,6 +674,7 @@ class Player {
         this.speed = CONFIG.PLAYER_SPEED;
         this.maxHealth = CONFIG.PLAYER_HEALTH;
         this.health = this.maxHealth;
+        this.lives = 2;  // 2条命
         this.talents = talents;
         
         this.lastFireTime = 0;
@@ -593,6 +697,9 @@ class Player {
         
         this.extraBullets = 0;
         this.bulletWidthMultiplier = 1;
+        
+        // 风技能分身
+        this.clones = [];  // 分身位置
     }
     
     update(dt, game) {
@@ -702,22 +809,29 @@ class Player {
         
         if (now - this.lastFireTime > fireRate) {
             this.talents.forEach((talent, index) => {
-                this.createBullet(talent, game, index);
+                this.createBullet(talent, game, index, this.x, this.y);
+                
+                // 风技能分身也发射子弹
+                if (this.skillEffects.windDance && talent === 'wind') {
+                    this.clones.forEach(clone => {
+                        this.createBullet(talent, game, index, clone.x, clone.y, 0.7);
+                    });
+                }
             });
             this.lastFireTime = now;
         }
     }
     
-    createBullet(talent, game, index) {
+    createBullet(talent, game, index, x, y, damageMultiplier = 1) {
         const t = TALENTS[talent];
         const baseOffset = index === 0 ? -10 : 10;
-        const damage = this.getBulletDamage(t.damage);
+        const damage = this.getBulletDamage(t.damage) * damageMultiplier;
         const speed = CONFIG.BULLET_SPEED * (talent === 'wind' ? 1.5 : 1);
         const radius = 5 * this.bulletWidthMultiplier;
         
         // 基础子弹
         game.bullets.push(new Bullet(
-            this.x + baseOffset, this.y - 20,
+            x + baseOffset, y - 20,
             0, -speed,
             damage, t.color, talent, talent === 'wind', radius
         ));
@@ -731,7 +845,7 @@ class Player {
             const xOffset = (i % 2 === 0 ? -1 : 1) * (15 + i * 8);
             
             game.bullets.push(new Bullet(
-                this.x + baseOffset + xOffset, this.y - 20,
+                x + baseOffset + xOffset, y - 20,
                 vx, vy,
                 damage * 0.7, t.color, talent, talent === 'wind', radius * 0.8
             ));
@@ -821,90 +935,77 @@ class Player {
             }
         }
         
-        // 疾风技能特效 - 增强版
+        // 疾风技能 - 分身效果
         if (this.skillEffects.windDance) {
-            // 大范围风刃 - 更宽更明显
-            if (Math.random() < 0.8) {
-                for (let i = 0; i < 5; i++) {
-                    const side = Math.random() < 0.5 ? -1 : 1;
-                    game.particles.push(new BigWindParticle(
-                        this.x + side * (40 + Math.random() * 30),
-                        this.y - 30 + (Math.random() - 0.5) * 60,
-                        side * (3 + Math.random() * 4),
-                        (Math.random() - 0.5) * 3
-                    ));
-                }
+            // 更新分身位置（在主角两侧）
+            this.clones = [
+                { x: this.x - 60, y: this.y, offset: -60 },
+                { x: this.x + 60, y: this.y, offset: 60 }
+            ];
+            
+            // 分身拖尾效果
+            if (Math.random() < 0.3) {
+                this.clones.forEach(clone => {
+                    game.particles.push(new WindCloneParticle(clone.x, clone.y));
+                });
             }
-            // 速度线效果 - 更多更密集
-            if (Math.random() < 0.5) {
-                for (let i = 0; i < 3; i++) {
-                    game.particles.push(new SpeedLine(this.x + (Math.random() - 0.5) * 40, this.y));
-                }
-            }
-            // 风之光环
-            if (Math.random() < 0.2) {
-                game.particles.push(new WindRing(this.x, this.y));
-            }
+        } else {
+            this.clones = [];
         }
         
-        // 雷霆技能特效 - 超酷炫全屏闪电风暴
+        // 雷霆技能特效 - 优化版，减少卡顿
         if (this.skillEffects.thunderChain) {
-            // 超大面积闪电 - 覆盖全屏
-            if (Math.random() < 0.8) {
-                const lightningCount = 8;
-                for (let i = 0; i < lightningCount; i++) {
-                    const angle = (Math.PI * 2 / lightningCount) * i + Date.now() / 150 + Math.random() * 0.8;
+            // 限制粒子总数，避免卡顿
+            const maxParticlesPerFrame = 5;
+            let particleCount = 0;
+            
+            // 超大面积闪电 - 覆盖全屏，但减少频率和数量
+            if (Math.random() < 0.3 && particleCount < maxParticlesPerFrame) {
+                const lightningCount = 3;
+                for (let i = 0; i < lightningCount && particleCount < maxParticlesPerFrame; i++) {
+                    const angle = (Math.PI * 2 / lightningCount) * i + Date.now() / 200;
                     const startDist = 15;
-                    const endDist = 350 + Math.random() * 200; // 几乎全屏
+                    const endDist = 350 + Math.random() * 200;
                     game.particles.push(new UltraLightningParticle(
                         this.x + Math.cos(angle) * startDist,
                         this.y + Math.sin(angle) * startDist,
                         this.x + Math.cos(angle) * endDist,
                         this.y + Math.sin(angle) * endDist
                     ));
+                    particleCount++;
                 }
             }
-            // 交叉闪电网络
-            if (Math.random() < 0.5) {
-                for (let i = 0; i < 3; i++) {
-                    const angle1 = Math.random() * Math.PI * 2;
-                    const angle2 = angle1 + Math.PI / 2 + (Math.random() - 0.5);
-                    const dist = 200 + Math.random() * 250;
-                    game.particles.push(new UltraLightningParticle(
-                        this.x + Math.cos(angle1) * dist,
-                        this.y + Math.sin(angle1) * dist,
-                        this.x + Math.cos(angle2) * dist,
-                        this.y + Math.sin(angle2) * dist
+            
+            // 电火花风暴 - 减少数量
+            if (particleCount < maxParticlesPerFrame) {
+                const sparkCount = Math.min(3, maxParticlesPerFrame - particleCount);
+                for (let i = 0; i < sparkCount; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = 20 + Math.random() * 150;
+                    game.particles.push(new ThunderSparkParticle(
+                        this.x + Math.cos(angle) * dist,
+                        this.y + Math.sin(angle) * dist
                     ));
                 }
+                particleCount += sparkCount;
             }
-            // 电火花风暴
-            for (let i = 0; i < 12; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const dist = 20 + Math.random() * 150;
-                game.particles.push(new ThunderSparkParticle(
-                    this.x + Math.cos(angle) * dist,
-                    this.y + Math.sin(angle) * dist
-                ));
-            }
-            // 多层雷霆光环
-            if (Math.random() < 0.4) {
+            
+            // 雷霆光环 - 降低频率
+            if (Math.random() < 0.1 && particleCount < maxParticlesPerFrame) {
                 game.particles.push(new ThunderRing(this.x, this.y));
-            }
-            if (Math.random() < 0.2) {
-                game.particles.push(new ThunderRing(this.x, this.y));
-            }
-            // 雷霆核心爆发
-            if (Math.random() < 0.3) {
-                game.particles.push(new ThunderCore(this.x, this.y));
             }
         }
         
-        // 寒冰技能特效 - 增强版
+        // 寒冰技能特效 - 优化版，减少卡顿
         if (this.skillEffects.iceField) {
-            // 大范围冰霜粒子 - 更多更大
-            if (Math.random() < 0.6) {
-                for (let i = 0; i < 10; i++) {
+            // 限制粒子总数
+            const maxParticlesPerFrame = 4;
+            let particleCount = 0;
+            
+            // 大范围冰霜粒子 - 减少数量
+            if (Math.random() < 0.4 && particleCount < maxParticlesPerFrame) {
+                const iceCount = Math.min(4, maxParticlesPerFrame - particleCount);
+                for (let i = 0; i < iceCount; i++) {
                     const angle = Math.random() * Math.PI * 2;
                     const dist = Math.random() * 180;
                     game.particles.push(new BigIceParticle(
@@ -912,18 +1013,19 @@ class Player {
                         this.y + Math.sin(angle) * dist
                     ));
                 }
+                particleCount += iceCount;
             }
-            // 雪花效果 - 更密集
-            if (Math.random() < 0.5) {
-                for (let i = 0; i < 3; i++) {
-                    game.particles.push(new BigSnowParticle(
-                        this.x + (Math.random() - 0.5) * 250,
-                        this.y + (Math.random() - 0.5) * 250
-                    ));
-                }
+            
+            // 雪花效果 - 减少数量
+            if (Math.random() < 0.3 && particleCount < maxParticlesPerFrame) {
+                game.particles.push(new BigSnowParticle(
+                    this.x + (Math.random() - 0.5) * 250,
+                    this.y + (Math.random() - 0.5) * 250
+                ));
             }
-            // 冰霜光环
-            if (Math.random() < 0.2) {
+            
+            // 冰霜光环 - 降低频率
+            if (Math.random() < 0.1) {
                 game.particles.push(new IceRing(this.x, this.y));
             }
         }
@@ -939,7 +1041,17 @@ class Player {
         if (window.game) window.game.screenShake(5);
         
         if (this.health <= 0 && window.game) {
-            window.game.gameOver(false);
+            this.lives--;
+            if (this.lives > 0) {
+                // 还有命，复活
+                this.health = this.maxHealth;
+                this.invincibleTime = 3;  // 复活后3秒无敌
+                window.game.screenShake(10);
+                window.game.createParticles(this.x, this.y, '#fff', 30);
+            } else {
+                // 没命了，游戏结束
+                window.game.gameOver(false);
+            }
         }
     }
     
@@ -1066,6 +1178,41 @@ class Player {
             ctx.arc(this.x, this.y, 150, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
+        }
+        
+        // 绘制风技能分身
+        if (this.skillEffects.windDance && this.clones.length > 0) {
+            this.clones.forEach(clone => {
+                ctx.save();
+                ctx.globalAlpha = 0.6;
+                ctx.translate(clone.x, clone.y);
+                
+                // 分身飞船（简化版）
+                const bodyGradient = ctx.createLinearGradient(0, -20, 0, 15);
+                bodyGradient.addColorStop(0, '#85e3ff');
+                bodyGradient.addColorStop(0.5, '#48dbfb');
+                bodyGradient.addColorStop(1, '#0abde3');
+                
+                ctx.fillStyle = bodyGradient;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#48dbfb';
+                ctx.beginPath();
+                ctx.moveTo(0, -20);
+                ctx.lineTo(15, 12);
+                ctx.lineTo(0, 8);
+                ctx.lineTo(-15, 12);
+                ctx.closePath();
+                ctx.fill();
+                
+                // 核心
+                ctx.fillStyle = '#fff';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(0, -3, 8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            });
         }
     }
 }
@@ -1603,24 +1750,25 @@ class Enemy {
 
 // ==================== BOSS类 ====================
 class Boss {
-    constructor(x, y) {
+    constructor(x, y, isMiniBoss = false) {
         this.x = x;
         this.y = y;
-        this.size = 140;
-        this.radius = 70;
-        this.maxHealth = 5000;  // 大幅增加血量
+        this.isMiniBoss = isMiniBoss;
+        this.size = isMiniBoss ? 100 : 140;
+        this.radius = isMiniBoss ? 50 : 70;
+        this.maxHealth = isMiniBoss ? 3000 : 6000;  // 小BOSS 3000，大BOSS 6000
         this.health = this.maxHealth;
-        this.speed = 1.2;
+        this.speed = isMiniBoss ? 1.5 : 1.2;
         this.active = true;
         this.phase = 1;
         this.lastAttack = 0;
-        this.attackInterval = 2500;
+        this.attackInterval = isMiniBoss ? 2000 : 2500;
         this.targetX = x;
         this.targetY = y;
-        this.name = '元素吞噬者';
-        this.damageMultiplier = 1;
-        this.bulletSpeed = 4;
-        this.attackPatterns = ['spread'];
+        this.name = isMiniBoss ? '精英守卫' : '元素吞噬者';
+        this.damageMultiplier = isMiniBoss ? 0.8 : 1;
+        this.bulletSpeed = isMiniBoss ? 5 : 4;
+        this.attackPatterns = isMiniBoss ? ['spread', 'laser'] : ['spread'];
         this.rageMode = false;
     }
     
@@ -2706,6 +2854,42 @@ class BigSnowParticle {
         ctx.arc(0, 0, this.size * 0.3, 0, Math.PI * 2);
         ctx.fill();
         
+        ctx.restore();
+    }
+}
+
+// ==================== 风分身粒子 ====================
+class WindCloneParticle {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 2;
+        this.vy = Math.random() * 2 + 1;
+        this.life = 0.5 + Math.random() * 0.3;
+        this.maxLife = this.life;
+        this.active = true;
+        this.size = 3 + Math.random() * 3;
+    }
+    
+    update(dt) {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= dt;
+        
+        if (this.life <= 0) {
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        ctx.globalAlpha = (this.life / this.maxLife) * 0.6;
+        ctx.fillStyle = '#48dbfb';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#48dbfb';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
     }
 }
