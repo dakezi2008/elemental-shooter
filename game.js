@@ -1989,7 +1989,7 @@ class Boss {
         this.targetX = x;
         this.targetY = y;
         this.name = isMiniBoss ? '精英守卫' : '元素吞噬者';
-        this.damageMultiplier = isMiniBoss ? 0.8 : 1;
+        this.damageMultiplier = isMiniBoss ? 0.4 : 0.5;  // 大幅降低伤害倍率
         this.bulletSpeed = isMiniBoss ? 5 : 4;
         this.attackPatterns = isMiniBoss ? 
             ['spread', 'laser', 'fan', 'ring'] : 
@@ -2004,7 +2004,7 @@ class Boss {
         if (healthPercent < 0.75 && this.phase === 1) {
             this.phase = 2;
             this.attackInterval = 2000;
-            this.damageMultiplier = 1.3;
+            this.damageMultiplier = 0.7;  // 降低伤害增长
             this.bulletSpeed = 5;
             this.attackPatterns = ['spread', 'laser'];
             game.screenShake(10);
@@ -2012,7 +2012,7 @@ class Boss {
             this.phase = 3;
             this.attackInterval = 1500;
             this.speed = 1.8;
-            this.damageMultiplier = 1.6;
+            this.damageMultiplier = 0.9;  // 降低伤害增长
             this.bulletSpeed = 6;
             this.attackPatterns = ['spread', 'laser', 'spiral'];
             game.screenShake(15);
@@ -2021,7 +2021,7 @@ class Boss {
             this.rageMode = true;
             this.attackInterval = 1000;
             this.speed = 2.5;
-            this.damageMultiplier = 2;
+            this.damageMultiplier = 1.2;  // 狂暴模式伤害适中
             this.bulletSpeed = 7;
             this.attackPatterns = ['spread', 'laser', 'spiral', 'chaos'];
             game.screenShake(20);
