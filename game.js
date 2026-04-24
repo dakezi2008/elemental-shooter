@@ -1,14 +1,1215 @@
+// 元素射击游戏 - Elemental Shooter
+// 完整游戏代码
 
-// ==================== UI 控制函数 ====================
-
-let game;
-
-// 初始化游戏
-window.onload = () => {
-    game = new Game();
+// ==================== 游戏配置 ====================
+const CONFIG = {
+    GAME_DURATION: 300,
+    PLAYER_SPEED: 5,
+    PLAYER_HEALTH: 100,
+    BULLET_SPEED: 10,
+    SPAWN_INTERVAL: 2000,
+    BOSS_SPAWN_TIME: 240,
+    MAX_LEVEL: 20,
+    XP_PER_LEVEL: [0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2700, 3250, 3850, 4500, 5200, 5950, 6750, 7600, 8500, 9450, 10450]
 };
 
-// 显示主菜单
+const TALENTS = {
+    fire: { name: '烈焰', icon: '🔥', color: '#ff6b6b', bulletType: 'fire', damage: 25, fireRate: 200, skillCooldown: 8000, skillDuration: 3000 },
+    wind: { name: '疾风', icon: '💨', color: '#48dbfb', bulletType: 'wind', damage: 15, fireRate: 100, skillCooldown: 6000, skillDuration: 2000 },
+    thunder: { name: '雷霆', icon: '⚡', color: '#feca57', bulletType: 'thunder', damage: 20, fireRate: 150, skillCooldown: 10000, skillDuration: 2500 },
+    ice: { name: '寒冰', icon: '❄️', color: '#a29bfe', bulletType: 'ice', damage: 18, fireRate: 180, skillCooldown: 7000, skillDuration: 4000 }
+};
+
+const GameState = {
+    MENU: 'menu',
+    TALENT_SELECT: 'talent_select',
+    PLAYING: 'playing',
+    PAUSED: 'paused',
+    GAME_OVER: 'game_over',
+    VICTORY: 'victory'
+};
+
+// ==================== 游戏类 ====================
+class Game {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+        
+        this.state = GameState.MENU;
+        this.selectedTalents = [];
+        this.score = 0;
+        this.level = 1;
+        this.xp = 0;
+        this.gameTime = 0;
+        this.lastTime = 0;
+        
+        this.player = null;
+        this.bullets = [];
+        this.enemies = [];
+        this.particles = [];
+        this.boss = null;
+        
+        this.keys = {};
+        this.mouse = { x: 0, y: 0, down: false };
+        this.joystick = { active: false, dx: 0, dy: 0 };
+        
+        this.shake = 0;
+        
+        this.setupEventListeners();
+        this.setupJoystick();
+        this.loop = this.loop.bind(this);
+        requestAnimationFrame(this.loop);
+    }
+    
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        this.width = this.canvas.width;
+        this.height = this.canvas.height;
+    }
+    
+    setupEventListeners() {
+        window.addEventListener('resize', () => this.resize());
+        
+        window.addEventListener('keydown', (e) => {
+            this.keys[e.key.toLowerCase()] = true;
+            if (e.key === 'Escape' && this.state === GameState.PLAYING) {
+                this.pause();
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            this.keys[e.key.toLowerCase()] = false;
+        });
+        
+        this.canvas.addEventListener('mousemove', (e) => {
+            this.mouse.x = e.clientX;
+            this.mouse.y = e.clientY;
+        });
+        
+        this.canvas.addEventListener('mousedown', () => {
+            this.mouse.down = true;
+        });
+        
+        this.canvas.addEventListener('mouseup', () => {
+            this.mouse.down = false;
+        });
+        
+        this.canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.mouse.down = true;
+            if (e.touches.length > 0) {
+                this.mouse.x = e.touches[0].clientX;
+                this.mouse.y = e.touches[0].clientY;
+            }
+        });
+        
+        this.canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (e.touches.length > 0) {
+                this.mouse.x = e.touches[0].clientX;
+                this.mouse.y = e.touches[0].clientY;
+            }
+        });
+        
+        this.canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            this.mouse.down = false;
+        });
+    }
+    
+    setupJoystick() {
+        const zone = document.getElementById('joystickZone');
+        const stick = document.getElementById('joystickStick');
+        if (!zone || !stick) return;
+        
+        let startX, startY;
+        
+        const handleStart = (e) => {
+            e.preventDefault();
+            const touch = e.touches ? e.touches[0] : e;
+            const rect = zone.getBoundingClientRect();
+            startX = rect.left + rect.width / 2;
+            startY = rect.top + rect.height / 2;
+            this.joystick.active = true;
+        };
+        
+        const handleMove = (e) => {
+            if (!this.joystick.active) return;
+            e.preventDefault();
+            const touch = e.touches ? e.touches[0] : e;
+            const dx = touch.clientX - startX;
+            const dy = touch.clientY - startY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const maxDistance = 35;
+            
+            if (distance > maxDistance) {
+                const ratio = maxDistance / distance;
+                stick.style.transform = `translate(calc(-50% + ${dx * ratio}px), calc(-50% + ${dy * ratio}px))`;
+                this.joystick.dx = (dx / distance) * ratio;
+                this.joystick.dy = (dy / distance) * ratio;
+            } else {
+                stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                this.joystick.dx = dx / maxDistance;
+                this.joystick.dy = dy / maxDistance;
+            }
+        };
+        
+        const handleEnd = (e) => {
+            e.preventDefault();
+            this.joystick.active = false;
+            this.joystick.dx = 0;
+            this.joystick.dy = 0;
+            stick.style.transform = 'translate(-50%, -50%)';
+        };
+        
+        zone.addEventListener('touchstart', handleStart);
+        zone.addEventListener('touchmove', handleMove);
+        zone.addEventListener('touchend', handleEnd);
+    }
+    
+    start(selectedTalents) {
+        this.selectedTalents = selectedTalents;
+        this.state = GameState.PLAYING;
+        this.score = 0;
+        this.level = 1;
+        this.xp = 0;
+        this.gameTime = CONFIG.GAME_DURATION;
+        
+        this.player = new Player(this.width / 2, this.height - 150, selectedTalents);
+        this.bullets = [];
+        this.enemies = [];
+        this.particles = [];
+        this.boss = null;
+        
+        this.lastSpawnTime = 0;
+        this.bossSpawned = false;
+        
+        this.updateUI();
+        this.setupSkillButtons();
+        
+        document.getElementById('mainMenu').style.display = 'none';
+        document.getElementById('talentSelect').classList.remove('active');
+        document.getElementById('hud').classList.add('active');
+        document.getElementById('joystickZone').style.display = 'block';
+        document.getElementById('skillButtons').style.display = 'flex';
+        document.getElementById('gameOver').classList.remove('active');
+    }
+    
+    setupSkillButtons() {
+        const container = document.getElementById('skillButtons');
+        if (!container) return;
+        container.innerHTML = '';
+        
+        this.selectedTalents.forEach((talentKey, index) => {
+            const talent = TALENTS[talentKey];
+            const btn = document.createElement('div');
+            btn.className = 'skill-btn';
+            btn.style.borderColor = talent.color;
+            btn.innerHTML = `
+                <span class="icon">${talent.icon}</span>
+                <span class="key">${index === 0 ? 'Q' : 'W'}</span>
+                <div class="cooldown-overlay" id="skill-cd-${index}"></div>
+            `;
+            btn.onclick = () => this.player && this.player.activateSkill(index);
+            container.appendChild(btn);
+        });
+    }
+    
+    pause() {
+        this.state = GameState.PAUSED;
+        document.getElementById('pauseMenu').classList.add('active');
+    }
+    
+    resume() {
+        this.state = GameState.PLAYING;
+        document.getElementById('pauseMenu').classList.remove('active');
+        this.lastTime = performance.now();
+    }
+    
+    gameOver(victory = false) {
+        this.state = victory ? GameState.VICTORY : GameState.GAME_OVER;
+        document.getElementById('gameOverTitle').textContent = victory ? '胜利!' : '游戏结束';
+        document.getElementById('gameOverTitle').style.color = victory ? '#4CAF50' : '#ff6b6b';
+        document.getElementById('finalScore').textContent = this.score;
+        document.getElementById('finalLevel').textContent = this.level;
+        document.getElementById('gameOver').classList.add('active');
+        document.getElementById('hud').classList.remove('active');
+        document.getElementById('joystickZone').style.display = 'none';
+        document.getElementById('skillButtons').style.display = 'none';
+        document.getElementById('bossHud').classList.remove('active');
+    }
+    
+    spawnEnemy() {
+        const types = ['basic', 'fast', 'tank', 'shooter'];
+        const weights = [0.5, 0.25, 0.15, 0.1];
+        const type = this.weightedRandom(types, weights);
+        const x = Math.random() * (this.width - 60) + 30;
+        this.enemies.push(new Enemy(x, -50, type, this.level));
+    }
+    
+    spawnBoss() {
+        this.boss = new Boss(this.width / 2, -100);
+        this.bossSpawned = true;
+        document.getElementById('bossHud').classList.add('active');
+        document.getElementById('warningText').classList.add('active');
+        setTimeout(() => {
+            document.getElementById('warningText').classList.remove('active');
+        }, 3000);
+    }
+    
+    weightedRandom(items, weights) {
+        const total = weights.reduce((a, b) => a + b, 0);
+        let random = Math.random() * total;
+        for (let i = 0; i < items.length; i++) {
+            random -= weights[i];
+            if (random <= 0) return items[i];
+        }
+        return items[0];
+    }
+    
+    addXP(amount) {
+        this.xp += amount;
+        const nextLevelXP = CONFIG.XP_PER_LEVEL[this.level] || CONFIG.XP_PER_LEVEL[CONFIG.XP_PER_LEVEL.length - 1];
+        if (this.xp >= nextLevelXP && this.level < CONFIG.MAX_LEVEL) {
+            this.levelUp();
+        }
+        this.updateUI();
+    }
+    
+    levelUp() {
+        this.level++;
+        this.player && this.player.onLevelUp();
+        const levelUpEl = document.getElementById('levelUp');
+        if (levelUpEl) {
+            levelUpEl.classList.add('active');
+            setTimeout(() => levelUpEl.classList.remove('active'), 2000);
+        }
+    }
+    
+    updateUI() {
+        const scoreEl = document.getElementById('scoreText');
+        const levelEl = document.getElementById('levelText');
+        const healthEl = document.getElementById('healthFill');
+        const xpEl = document.getElementById('xpFill');
+        const timerEl = document.getElementById('timer');
+        const bossHealthEl = document.getElementById('bossHealthFill');
+        
+        if (scoreEl) scoreEl.textContent = this.score;
+        if (levelEl) levelEl.textContent = this.level;
+        
+        if (this.player && healthEl) {
+            healthEl.style.width = (this.player.health / this.player.maxHealth * 100) + '%';
+        }
+        
+        const nextLevelXP = CONFIG.XP_PER_LEVEL[this.level] || CONFIG.XP_PER_LEVEL[CONFIG.XP_PER_LEVEL.length - 1];
+        const prevLevelXP = CONFIG.XP_PER_LEVEL[this.level - 1] || 0;
+        const xpPercent = ((this.xp - prevLevelXP) / (nextLevelXP - prevLevelXP)) * 100;
+        if (xpEl) xpEl.style.width = Math.max(0, Math.min(100, xpPercent)) + '%';
+        
+        const minutes = Math.floor(this.gameTime / 60);
+        const seconds = Math.floor(this.gameTime % 60);
+        if (timerEl) timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        if (this.boss && bossHealthEl) {
+            bossHealthEl.style.width = (this.boss.health / this.boss.maxHealth * 100) + '%';
+        }
+    }
+    
+    createParticles(x, y, color, count = 10) {
+        for (let i = 0; i < count; i++) {
+            this.particles.push(new Particle(x, y, color));
+        }
+    }
+    
+    screenShake(amount) {
+        this.shake = Math.max(this.shake, amount);
+    }
+    
+    loop(currentTime) {
+        const deltaTime = currentTime - this.lastTime;
+        this.lastTime = currentTime;
+        
+        if (this.state === GameState.PLAYING) {
+            this.update(deltaTime);
+            this.render();
+        }
+        
+        requestAnimationFrame(this.loop);
+    }
+    
+    update(deltaTime) {
+        const dt = deltaTime / 1000;
+        
+        this.gameTime -= dt;
+        if (this.gameTime <= 0) {
+            this.gameOver(true);
+            return;
+        }
+        
+        if (!this.bossSpawned && this.gameTime <= CONFIG.GAME_DURATION - CONFIG.BOSS_SPAWN_TIME) {
+            this.spawnBoss();
+        }
+        
+        this.lastSpawnTime += deltaTime;
+        const spawnInterval = Math.max(500, CONFIG.SPAWN_INTERVAL - (this.level * 100));
+        if (this.lastSpawnTime > spawnInterval && !this.boss) {
+            this.spawnEnemy();
+            this.lastSpawnTime = 0;
+        }
+        
+        if (this.player) this.player.update(dt, this);
+        
+        this.bullets = this.bullets.filter(bullet => {
+            bullet.update(dt);
+            return bullet.active && bullet.x > -50 && bullet.x < this.width + 50 && bullet.y > -50 && bullet.y < this.height + 50;
+        });
+        
+        this.enemies = this.enemies.filter(enemy => {
+            enemy.update(dt, this);
+            return enemy.active && enemy.y < this.height + 100;
+        });
+        
+        if (this.boss) {
+            this.boss.update(dt, this);
+            if (!this.boss.active) {
+                this.boss = null;
+                document.getElementById('bossHud').classList.remove('active');
+            }
+        }
+        
+        this.particles = this.particles.filter(p => {
+            p.update(dt);
+            return p.active;
+        });
+        
+        this.checkCollisions();
+        this.updateUI();
+        this.shake *= 0.9;
+        if (this.shake < 0.5) this.shake = 0;
+    }
+    
+    checkCollisions() {
+        this.bullets.forEach(bullet => {
+            if (!bullet.active || bullet.fromEnemy) return;
+            
+            this.enemies.forEach(enemy => {
+                if (!enemy.active) return;
+                if (this.checkCollision(bullet, enemy)) {
+                    bullet.hit(enemy, this);
+                }
+            });
+            
+            if (this.boss && this.boss.active) {
+                if (this.checkCollision(bullet, this.boss)) {
+                    bullet.hit(this.boss, this);
+                }
+            }
+        });
+        
+        this.bullets.forEach(bullet => {
+            if (!bullet.active || !bullet.fromEnemy) return;
+            if (this.player && this.checkCollision(bullet, this.player)) {
+                this.player.takeDamage(bullet.damage);
+                bullet.active = false;
+                this.createParticles(bullet.x, bullet.y, '#ff6b6b', 5);
+            }
+        });
+        
+        this.enemies.forEach(enemy => {
+            if (!enemy.active) return;
+            if (this.player && this.checkCollision(enemy, this.player)) {
+                this.player.takeDamage(enemy.damage);
+                enemy.takeDamage(enemy.health, this);
+                this.screenShake(5);
+            }
+        });
+        
+        if (this.boss && this.boss.active && this.player) {
+            if (this.checkCollision(this.boss, this.player)) {
+                this.player.takeDamage(20);
+                this.screenShake(8);
+            }
+        }
+    }
+    
+    checkCollision(a, b) {
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return distance < (a.radius || a.size / 2) + (b.radius || b.size / 2);
+    }
+    
+    render() {
+        this.ctx.fillStyle = '#0a0a15';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+        
+        this.drawBackground();
+        
+        this.ctx.save();
+        if (this.shake > 0) {
+            const shakeX = (Math.random() - 0.5) * this.shake;
+            const shakeY = (Math.random() - 0.5) * this.shake;
+            this.ctx.translate(shakeX, shakeY);
+        }
+        
+        this.particles.forEach(p => p.render(this.ctx));
+        this.bullets.forEach(b => b.render(this.ctx));
+        this.enemies.forEach(e => e.render(this.ctx));
+        if (this.boss) this.boss.render(this.ctx);
+        if (this.player) this.player.render(this.ctx);
+        
+        this.ctx.restore();
+    }
+    
+    drawBackground() {
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        for (let i = 0; i < 50; i++) {
+            const x = (i * 137.5 + this.gameTime * 10) % this.width;
+            const y = (i * 73.3 + this.gameTime * 20) % this.height;
+            const size = (i % 3) + 1;
+            this.ctx.fillRect(x, y, size, size);
+        }
+        
+        this.ctx.strokeStyle = 'rgba(102, 126, 234, 0.1)';
+        this.ctx.lineWidth = 1;
+        const gridSize = 50;
+        const offset = (this.gameTime * 30) % gridSize;
+        
+        for (let x = 0; x < this.width; x += gridSize) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.height);
+            this.ctx.stroke();
+        }
+        
+        for (let y = offset; y < this.height; y += gridSize) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(this.width, y);
+            this.ctx.stroke();
+        }
+    }
+}
+
+// ==================== 玩家类 ====================
+class Player {
+    constructor(x, y, talents) {
+        this.x = x;
+        this.y = y;
+        this.size = 40;
+        this.radius = 20;
+        this.speed = CONFIG.PLAYER_SPEED;
+        this.maxHealth = CONFIG.PLAYER_HEALTH;
+        this.health = this.maxHealth;
+        this.talents = talents;
+        
+        this.lastFireTime = 0;
+        this.invincible = false;
+        this.invincibleTime = 0;
+        
+        this.skills = talents.map((t) => ({
+            key: t,
+            cooldown: 0,
+            active: false,
+            duration: 0
+        }));
+        
+        this.skillEffects = {
+            fireStorm: false,
+            windDance: false,
+            thunderChain: false,
+            iceField: false
+        };
+    }
+    
+    update(dt, game) {
+        let dx = 0, dy = 0;
+        
+        if (game.keys['w'] || game.keys['arrowup']) dy -= 1;
+        if (game.keys['s'] || game.keys['arrowdown']) dy += 1;
+        if (game.keys['a'] || game.keys['arrowleft']) dx -= 1;
+        if (game.keys['d'] || game.keys['arrowright']) dx += 1;
+        
+        if (game.joystick.active) {
+            dx = game.joystick.dx;
+            dy = game.joystick.dy;
+        }
+        
+        if (dx !== 0 || dy !== 0) {
+            const length = Math.sqrt(dx * dx + dy * dy);
+            if (length > 0) {
+                dx /= length;
+                dy /= length;
+            }
+            
+            if (this.talents.includes('wind')) {
+                dx *= this.speed * 1.3;
+                dy *= this.speed * 1.3;
+            } else {
+                dx *= this.speed;
+                dy *= this.speed;
+            }
+            
+            this.x += dx;
+            this.y += dy;
+        }
+        
+        this.x = Math.max(this.radius, Math.min(game.width - this.radius, this.x));
+        this.y = Math.max(this.radius, Math.min(game.height - this.radius, this.y));
+        
+        this.fire(dt, game);
+        this.updateSkills(dt, game);
+        
+        if (this.invincible) {
+            this.invincibleTime -= dt;
+            if (this.invincibleTime <= 0) {
+                this.invincible = false;
+            }
+        }
+        
+        if (this.skillEffects.iceField) {
+            game.enemies.forEach(enemy => {
+                const dx = enemy.x - this.x;
+                const dy = enemy.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 150) {
+                    enemy.speedMultiplier = 0.5;
+                }
+            });
+        }
+    }
+    
+    fire(dt, game) {
+        const now = Date.now();
+        let fireRate = 200;
+        
+        if (this.talents.includes('wind')) fireRate = 100;
+        else if (this.talents.includes('fire')) fireRate = 200;
+        else if (this.talents.includes('thunder')) fireRate = 150;
+        else if (this.talents.includes('ice')) fireRate = 180;
+        
+        if (this.skillEffects.windDance) fireRate *= 0.5;
+        
+        if (now - this.lastFireTime > fireRate) {
+            this.talents.forEach((talent, index) => {
+                this.createBullet(talent, game, index);
+            });
+            this.lastFireTime = now;
+        }
+    }
+    
+    createBullet(talent, game, index) {
+        const t = TALENTS[talent];
+        const offset = index === 0 ? -10 : 10;
+        
+        game.bullets.push(new Bullet(
+            this.x + offset, this.y - 20,
+            0, -CONFIG.BULLET_SPEED * (talent === 'wind' ? 1.5 : 1),
+            t.damage, t.color, talent, talent === 'wind'
+        ));
+    }
+    
+    activateSkill(index) {
+        const skill = this.skills[index];
+        if (!skill || skill.cooldown > 0 || skill.active) return;
+        
+        const t = TALENTS[skill.key];
+        skill.cooldown = t.skillCooldown / 1000;
+        skill.active = true;
+        skill.duration = t.skillDuration / 1000;
+        
+        switch(skill.key) {
+            case 'fire': this.skillEffects.fireStorm = true; break;
+            case 'wind': this.skillEffects.windDance = true; break;
+            case 'thunder': this.skillEffects.thunderChain = true; break;
+            case 'ice': this.skillEffects.iceField = true; break;
+        }
+    }
+    
+    updateSkills(dt, game) {
+        this.skills.forEach((skill, index) => {
+            if (skill.cooldown > 0) {
+                skill.cooldown -= dt;
+                const overlay = document.getElementById(`skill-cd-${index}`);
+                if (overlay) {
+                    const t = TALENTS[skill.key];
+                    const percent = (skill.cooldown / (t.skillCooldown / 1000)) * 100;
+                    overlay.style.height = percent + '%';
+                }
+            }
+            
+            if (skill.active) {
+                skill.duration -= dt;
+                if (skill.duration <= 0) {
+                    skill.active = false;
+                    this.skillEffects.fireStorm = false;
+                    this.skillEffects.windDance = false;
+                    this.skillEffects.thunderChain = false;
+                    this.skillEffects.iceField = false;
+                }
+            }
+        });
+        
+        if (this.skillEffects.fireStorm && Math.random() < 0.3) {
+            for (let i = 0; i < 8; i++) {
+                const angle = (Math.PI * 2 / 8) * i + Math.random() * 0.5;
+                game.bullets.push(new Bullet(
+                    this.x, this.y,
+                    Math.cos(angle) * 8, Math.sin(angle) * 8,
+                    15, '#ff6b6b', 'fire'
+                ));
+            }
+        }
+    }
+    
+    takeDamage(damage) {
+        if (this.invincible) return;
+        
+        this.health -= damage;
+        this.invincible = true;
+        this.invincibleTime = 1;
+        
+        if (window.game) window.game.screenShake(5);
+        
+        if (this.health <= 0 && window.game) {
+            window.game.gameOver(false);
+        }
+    }
+    
+    onLevelUp() {
+        this.maxHealth += 20;
+        this.health = this.maxHealth;
+        this.speed += 0.5;
+    }
+    
+    render(ctx) {
+        ctx.save();
+        
+        if (this.invincible && Math.floor(Date.now() / 100) % 2 === 0) {
+            ctx.globalAlpha = 0.5;
+        }
+        
+        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+        gradient.addColorStop(0, '#667eea');
+        gradient.addColorStop(1, '#764ba2');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        if (this.talents[0]) {
+            ctx.fillText(TALENTS[this.talents[0]].icon, this.x - 8, this.y);
+        }
+        if (this.talents[1]) {
+            ctx.fillText(TALENTS[this.talents[1]].icon, this.x + 8, this.y);
+        }
+        
+        if (this.skillEffects.iceField) {
+            ctx.strokeStyle = 'rgba(162, 155, 254, 0.5)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 150, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+}
+
+// ==================== 子弹类 ====================
+class Bullet {
+    constructor(x, y, vx, vy, damage, color, type, penetrate = false) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.damage = damage;
+        this.color = color;
+        this.type = type;
+        this.penetrate = penetrate;
+        this.active = true;
+        this.radius = 5;
+        this.hitEnemies = new Set();
+        this.fromEnemy = false;
+    }
+    
+    update(dt) {
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        if (Math.random() < 0.3 && window.game) {
+            window.game.particles.push(new Particle(this.x, this.y, this.color, 1, 0.3));
+        }
+    }
+    
+    hit(target, game) {
+        if (this.hitEnemies.has(target)) return;
+        
+        let damage = this.damage;
+        
+        if (this.type === 'thunder' && game.player && game.player.skillEffects.thunderChain) {
+            damage *= 2;
+            game.enemies.forEach(enemy => {
+                if (enemy !== target && enemy.active) {
+                    const dx = enemy.x - target.x;
+                    const dy = enemy.y - target.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 100) {
+                        enemy.takeDamage(damage * 0.5, game);
+                        for (let i = 0; i < 5; i++) {
+                            game.particles.push(new Particle(
+                                target.x + (enemy.x - target.x) * (i / 5),
+                                target.y + (enemy.y - target.y) * (i / 5),
+                                '#feca57', 2, 0.2
+                            ));
+                        }
+                    }
+                }
+            });
+        }
+        
+        if (this.type === 'ice') {
+            target.speedMultiplier = 0.6;
+            target.slowTime = 2;
+        }
+        
+        if (this.type === 'fire') {
+            target.burning = 3;
+        }
+        
+        target.takeDamage(damage, game);
+        
+        if (!this.penetrate) {
+            this.active = false;
+        } else {
+            this.hitEnemies.add(target);
+        }
+        
+        game.createParticles(this.x, this.y, this.color, 5);
+    }
+    
+    render(ctx) {
+        ctx.save();
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+// ==================== 敌人类 ====================
+class Enemy {
+    constructor(x, y, type, level) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.level = level;
+        this.active = true;
+        this.speedMultiplier = 1;
+        this.slowTime = 0;
+        this.burning = 0;
+        
+        switch(type) {
+            case 'basic':
+                this.size = 30; this.radius = 15;
+                this.health = 30 + level * 5;
+                this.speed = 2 + level * 0.1;
+                this.damage = 10; this.score = 10; this.xp = 10;
+                this.color = '#ff6b6b';
+                break;
+            case 'fast':
+                this.size = 25; this.radius = 12;
+                this.health = 20 + level * 3;
+                this.speed = 4 + level * 0.15;
+                this.damage = 8; this.score = 15; this.xp = 15;
+                this.color = '#48dbfb';
+                break;
+            case 'tank':
+                this.size = 45; this.radius = 22;
+                this.health = 80 + level * 10;
+                this.speed = 1 + level * 0.05;
+                this.damage = 15; this.score = 25; this.xp = 25;
+                this.color = '#a29bfe';
+                break;
+            case 'shooter':
+                this.size = 30; this.radius = 15;
+                this.health = 40 + level * 5;
+                this.speed = 1.5 + level * 0.08;
+                this.damage = 12; this.score = 20; this.xp = 20;
+                this.color = '#feca57';
+                this.lastShot = 0;
+                break;
+        }
+        this.maxHealth = this.health;
+    }
+    
+    update(dt, game) {
+        if (this.slowTime > 0) {
+            this.slowTime -= dt;
+            if (this.slowTime <= 0) this.speedMultiplier = 1;
+        }
+        
+        if (this.burning > 0) {
+            this.burning -= dt;
+            this.health -= 2 * dt;
+            if (Math.random() < 0.3) {
+                game.particles.push(new Particle(this.x, this.y, '#ff6b6b', 1, 0.3));
+            }
+        }
+        
+        const dx = game.player.x - this.x;
+        const dy = game.player.y - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist > 0) {
+            this.x += (dx / dist) * this.speed * this.speedMultiplier;
+            this.y += (dy / dist) * this.speed * this.speedMultiplier;
+        }
+        
+        if (this.type === 'shooter') {
+            this.lastShot += dt * 1000;
+            if (this.lastShot > 2000) {
+                this.shoot(game);
+                this.lastShot = 0;
+            }
+        }
+        
+        if (this.health <= 0) {
+            this.die(game);
+        }
+    }
+    
+    shoot(game) {
+        const angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+        const bullet = new Bullet(
+            this.x, this.y,
+            Math.cos(angle) * 5, Math.sin(angle) * 5,
+            this.damage, this.color, this.type
+        );
+        bullet.fromEnemy = true;
+        game.bullets.push(bullet);
+    }
+    
+    takeDamage(damage, game) {
+        this.health -= damage;
+        this.showDamage(damage);
+        if (this.health <= 0) {
+            this.die(game);
+        }
+    }
+    
+    showDamage(damage) {
+        const el = document.createElement('div');
+        el.className = 'damage-text';
+        el.textContent = Math.floor(damage);
+        el.style.left = this.x + 'px';
+        el.style.top = this.y + 'px';
+        el.style.color = this.burning > 0 ? '#ff6b6b' : '#fff';
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 1000);
+    }
+    
+    die(game) {
+        this.active = false;
+        game.score += this.score;
+        game.addXP(this.xp);
+        game.createParticles(this.x, this.y, this.color, 15);
+        game.screenShake(3);
+    }
+    
+    render(ctx) {
+        ctx.save();
+        
+        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size / 2);
+        gradient.addColorStop(0, this.color);
+        gradient.addColorStop(1, this.darkenColor(this.color, 50));
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        const healthPercent = this.health / this.maxHealth;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(this.x - 20, this.y - this.size / 2 - 10, 40, 5);
+        ctx.fillStyle = healthPercent > 0.5 ? '#4CAF50' : healthPercent > 0.25 ? '#FFC107' : '#f44336';
+        ctx.fillRect(this.x - 20, this.y - this.size / 2 - 10, 40 * healthPercent, 5);
+        
+        if (this.speedMultiplier < 1) {
+            ctx.strokeStyle = '#a29bfe';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size / 2 + 5, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        
+        if (this.burning > 0) {
+            ctx.fillStyle = 'rgba(255, 107, 107, 0.3)';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size / 2 + 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+    
+    darkenColor(color, percent) {
+        const num = parseInt(color.replace('#', ''), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = Math.max((num >> 16) - amt, 0);
+        const G = Math.max((num >> 8 & 0x00FF) - amt, 0);
+        const B = Math.max((num & 0x0000FF) - amt, 0);
+        return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+    }
+}
+
+// ==================== BOSS类 ====================
+class Boss {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = 120;
+        this.radius = 60;
+        this.maxHealth = 2000;
+        this.health = this.maxHealth;
+        this.speed = 1.5;
+        this.active = true;
+        this.phase = 1;
+        this.lastAttack = 0;
+        this.attackInterval = 2000;
+        this.targetX = x;
+        this.targetY = y;
+        this.name = '元素吞噬者';
+    }
+    
+    update(dt, game) {
+        const healthPercent = this.health / this.maxHealth;
+        if (healthPercent < 0.6 && this.phase === 1) {
+            this.phase = 2;
+            this.attackInterval = 1500;
+            game.screenShake(10);
+        } else if (healthPercent < 0.3 && this.phase === 2) {
+            this.phase = 3;
+            this.attackInterval = 1000;
+            this.speed = 2;
+            game.screenShake(15);
+        }
+        
+        this.targetX = game.player.x;
+        this.targetY = Math.min(game.player.y - 200, game.height * 0.3);
+        
+        const dx = this.targetX - this.x;
+        const dy = this.targetY - this.y;
+        this.x += dx * this.speed * dt * 0.5;
+        this.y += dy * this.speed * dt * 0.5;
+        
+        this.lastAttack += dt * 1000;
+        if (this.lastAttack > this.attackInterval) {
+            this.attack(game);
+            this.lastAttack = 0;
+        }
+        
+        if (this.health <= 0) {
+            this.die(game);
+        }
+    }
+    
+    attack(game) {
+        switch(this.phase) {
+            case 1: this.spreadShot(game); break;
+            case 2:
+                if (Math.random() < 0.5) this.spreadShot(game);
+                else this.laserShot(game);
+                break;
+            case 3: this.spiralShot(game); break;
+        }
+    }
+    
+    spreadShot(game) {
+        const bulletCount = 8 + this.phase * 4;
+        for (let i = 0; i < bulletCount; i++) {
+            const angle = (Math.PI * 2 / bulletCount) * i + Math.random() * 0.5;
+            const bullet = new Bullet(
+                this.x, this.y + this.size / 2,
+                Math.cos(angle) * 4, Math.sin(angle) * 4,
+                15, '#ff6b6b', 'boss'
+            );
+            bullet.fromEnemy = true;
+            bullet.radius = 8;
+            game.bullets.push(bullet);
+        }
+        game.screenShake(5);
+    }
+    
+    laserShot(game) {
+        const angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+        for (let i = 0; i < 5; i++) {
+            const bullet = new Bullet(
+                this.x, this.y + this.size / 2,
+                Math.cos(angle) * (6 + i), Math.sin(angle) * (6 + i),
+                20, '#feca57', 'boss'
+            );
+            bullet.fromEnemy = true;
+            bullet.radius = 10;
+            game.bullets.push(bullet);
+        }
+    }
+    
+    spiralShot(game) {
+        const time = Date.now() / 1000;
+        for (let i = 0; i < 12; i++) {
+            const angle = (Math.PI * 2 / 12) * i + time;
+            const bullet = new Bullet(
+                this.x, this.y,
+                Math.cos(angle) * 5, Math.sin(angle) * 5,
+                12, '#a29bfe', 'boss'
+            );
+            bullet.fromEnemy = true;
+            bullet.radius = 6;
+            game.bullets.push(bullet);
+        }
+        
+        const angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+        const bullet = new Bullet(
+            this.x, this.y,
+            Math.cos(angle) * 7, Math.sin(angle) * 7,
+            25, '#ff6b6b', 'boss'
+        );
+        bullet.fromEnemy = true;
+        bullet.radius = 12;
+        game.bullets.push(bullet);
+        game.screenShake(8);
+    }
+    
+    takeDamage(damage, game) {
+        this.health -= damage;
+        this.showDamage(damage);
+        if (this.health <= 0) {
+            this.die(game);
+        }
+    }
+    
+    showDamage(damage) {
+        const el = document.createElement('div');
+        el.className = 'damage-text';
+        el.textContent = Math.floor(damage);
+        el.style.left = this.x + 'px';
+        el.style.top = this.y + 'px';
+        el.style.fontSize = '24px';
+        el.style.color = '#feca57';
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 1000);
+    }
+    
+    die(game) {
+        this.active = false;
+        game.score += 1000;
+        game.addXP(500);
+        game.createParticles(this.x, this.y, '#ff6b6b', 50);
+        game.screenShake(20);
+        game.gameOver(true);
+    }
+    
+    render(ctx) {
+        ctx.save();
+        
+        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size / 2);
+        if (this.phase === 1) {
+            gradient.addColorStop(0, '#ff6b6b');
+            gradient.addColorStop(1, '#c0392b');
+        } else if (this.phase === 2) {
+            gradient.addColorStop(0, '#feca57');
+            gradient.addColorStop(1, '#d35400');
+        } else {
+            gradient.addColorStop(0, '#a29bfe');
+            gradient.addColorStop(1, '#8e44ad');
+        }
+        
+        ctx.fillStyle = gradient;
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = this.phase === 3 ? '#a29bfe' : this.phase === 2 ? '#feca57' : '#ff6b6b';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size / 6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        const time = Date.now() / 1000;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 3; i++) {
+            const angle = (Math.PI * 2 / 3) * i + time;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size / 2 + 10, angle, angle + Math.PI / 3);
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+}
+
+// ==================== 粒子类 ====================
+class Particle {
+    constructor(x, y, color, size = 3, life = 1) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.size = size;
+        this.life = life;
+        this.maxLife = life;
+        this.active = true;
+        
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 3 + 1;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+    }
+    
+    update(dt) {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= dt;
+        this.size *= 0.98;
+        
+        if (this.life <= 0 || this.size < 0.5) {
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        ctx.globalAlpha = this.life / this.maxLife;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+// ==================== UI 控制函数 ====================
+let game;
+
+window.onload = () => {
+    game = new Game();
+    window.game = game;
+};
+
 function showMainMenu() {
     document.getElementById('mainMenu').style.display = 'flex';
     document.getElementById('talentSelect').classList.remove('active');
@@ -18,24 +1219,22 @@ function showMainMenu() {
     document.getElementById('joystickZone').style.display = 'none';
     document.getElementById('skillButtons').style.display = 'none';
     document.getElementById('bossHud').classList.remove('active');
+    document.getElementById('instructionsModal')?.classList.remove('active');
     
     if (game) {
         game.state = GameState.MENU;
     }
 }
 
-// 显示天赋选择
 function showTalentSelect() {
     document.getElementById('mainMenu').style.display = 'none';
     document.getElementById('talentSelect').classList.add('active');
     document.getElementById('gameOver').classList.remove('active');
     
-    // 重置选择
     selectedTalents = [];
     updateTalentUI();
 }
 
-// 显示游戏说明
 function showInstructions() {
     const modal = document.getElementById('instructionsModal');
     if (modal) {
@@ -43,7 +1242,6 @@ function showInstructions() {
     }
 }
 
-// 关闭游戏说明
 function closeInstructions() {
     const modal = document.getElementById('instructionsModal');
     if (modal) {
@@ -51,17 +1249,14 @@ function closeInstructions() {
     }
 }
 
-// 天赋选择
 let selectedTalents = [];
 
 function selectTalent(talent) {
     const index = selectedTalents.indexOf(talent);
     
     if (index > -1) {
-        // 取消选择
         selectedTalents.splice(index, 1);
     } else if (selectedTalents.length < 2) {
-        // 添加选择
         selectedTalents.push(talent);
     }
     
@@ -69,7 +1264,6 @@ function selectTalent(talent) {
 }
 
 function updateTalentUI() {
-    // 更新选中状态
     document.querySelectorAll('.talent-card').forEach(card => {
         const talent = card.dataset.talent;
         if (selectedTalents.includes(talent)) {
@@ -79,31 +1273,25 @@ function updateTalentUI() {
         }
     });
     
-    // 更新计数
     document.getElementById('selectedCount').textContent = selectedTalents.length;
     
-    // 更新开始按钮
     const startBtn = document.getElementById('startGameBtn');
     startBtn.disabled = selectedTalents.length !== 2;
 }
 
-// 开始游戏
 function startGame() {
     if (selectedTalents.length !== 2) return;
     game.start(selectedTalents);
 }
 
-// 暂停游戏
 function pauseGame() {
     if (game) game.pause();
 }
 
-// 继续游戏
 function resumeGame() {
     if (game) game.resume();
 }
 
-// 返回主菜单
 function returnToMenu() {
     if (game) {
         game.state = GameState.MENU;
@@ -111,46 +1299,27 @@ function returnToMenu() {
     showMainMenu();
 }
 
-// 防止页面滚动（移动端）
 document.addEventListener('touchmove', (e) => {
     if (e.target.tagName !== 'INPUT') {
         e.preventDefault();
     }
 }, { passive: false });
 
-// 防止双指缩放
-document.addEventListener('gesturestart', (e) => {
-    e.preventDefault();
-});
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('gesturechange', (e) => e.preventDefault());
+document.addEventListener('gestureend', (e) => e.preventDefault());
 
-document.addEventListener('gesturechange', (e) => {
-    e.preventDefault();
-});
-
-document.addEventListener('gestureend', (e) => {
-    e.preventDefault();
-});
-
-// 键盘快捷键
 document.addEventListener('keydown', (e) => {
     if (!game || game.state !== GameState.PLAYING) return;
     
-    // Q键 - 技能1
     if (e.key.toLowerCase() === 'q') {
         game.player.activateSkill(0);
     }
-    
-    // W键 - 技能2
     if (e.key.toLowerCase() === 'w') {
         game.player.activateSkill(1);
     }
 });
 
-console.log('🎮 元素射击游戏已加载！');
-console.log('按 "开始游戏" 选择天赋并开始战斗！');
-
-// 导出到全局（用于调试）
-window.game = game;
 window.showMainMenu = showMainMenu;
 window.showTalentSelect = showTalentSelect;
 window.showInstructions = showInstructions;
@@ -161,110 +1330,8 @@ window.pauseGame = pauseGame;
 window.resumeGame = resumeGame;
 window.returnToMenu = returnToMenu;
 
-// ==================== 游戏结束 ====================
-// 所有代码已加载完成
+console.log('🎮 元素射击游戏已加载！');
 console.log('✅ 游戏系统初始化完成！');
-console.log('📁 文件位置：d:\OOMM\AI-XIE\elemental-shooter\');
-console.log('🌐 可以直接在浏览器中打开 index.html 开始游戏！');
 
-// 检查是否在移动设备
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-if (isMobile) {
-    console.log('📱 检测到移动设备，已启用触屏控制');
-} else {
-    console.log('💻 检测到电脑设备，使用键盘+鼠标控制');
-}
-
-// 添加性能监控
-if (window.performance) {
-    window.addEventListener('load', () => {
-        setTimeout(() => {
-            const perfData = window.performance.timing;
-            const pageLoadTime = perfData.loadEventEnd - perfData.navigationStart;
-            console.log(`⏱️ 页面加载时间: ${pageLoadTime}ms`);
-        }, 0);
-    });
-}
-
-// 错误处理
-window.addEventListener('error', (e) => {
-    console.error('游戏错误:', e.message);
-    console.error('文件:', e.filename);
-    console.error('行号:', e.lineno);
-});
-
-window.addEventListener('unhandledrejection', (e) => {
-    console.error('未处理的Promise错误:', e.reason);
-});
-
-// 页面可见性变化（切换标签页时暂停）
-document.addEventListener('visibilitychange', () => {
-    if (document.hidden && game && game.state === GameState.PLAYING) {
-        game.pause();
-    }
-});
-
-// 防止右键菜单（游戏中）
-document.addEventListener('contextmenu', (e) => {
-    if (game && game.state === GameState.PLAYING) {
-        e.preventDefault();
-    }
-});
-
-// 添加触摸反馈（移动端震动）
-function vibrate(pattern) {
-    if (navigator.vibrate && isMobile) {
-        navigator.vibrate(pattern);
-    }
-}
-
-// 导出震动函数供游戏使用
-window.vibrate = vibrate;
-
-console.log('🎯 准备就绪！点击"开始游戏"开始你的元素射击之旅！');
-
-// 添加PWA支持
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').then(
-            (registration) => {
-                console.log('✅ ServiceWorker 注册成功:', registration.scope);
-            },
-            (err) => {
-                console.log('❌ ServiceWorker 注册失败:', err);
-            }
-        );
-    });
-}
-
-// 添加到主屏幕提示（PWA）
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    console.log('📲 可以添加到主屏幕');
-});
-
-// 导出安装函数
-window.installPWA = () => {
-    if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === 'accepted') {
-                console.log('用户接受了安装提示');
-            } else {
-                console.log('用户拒绝了安装提示');
-            }
-            deferredPrompt = null;
-        });
-    }
-};
-
-// 游戏版本
-const GAME_VERSION = '1.0.0';
-console.log(`🎮 元素射击 v${GAME_VERSION}`);
-console.log('开发者: AI Assistant');
-console.log('制作时间: 2026-04-24');
-
-// 结束标记
-console.log('%c 元素射击游戏已完全加载！ ', 'background: linear-gradient(135deg, #667eea, #764ba2); color: white; font-size: 20px; padding: 10px; border-radius: 5px;');
+console.log(isMobile ? '📱 检测到移动设备' : '💻 检测到电脑设备');
