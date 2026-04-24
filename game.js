@@ -10,7 +10,7 @@ const CONFIG = {
     SPAWN_INTERVAL: 1500,  // 更快的生成间隔
     BOSS_SPAWN_TIME: 120,  // 2分钟出现BOSS
     MAX_LEVEL: 20,
-    XP_PER_LEVEL: [0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2700, 3250, 3850, 4500, 5200, 5950, 6750, 7600, 8500, 9450, 10450]
+    XP_PER_LEVEL: [0, 150, 400, 750, 1200, 1750, 2400, 3150, 4000, 4950, 6000, 7150, 8400, 9750, 11200, 12750, 14400, 16150, 18000, 20000]
 };
 
 const TALENTS = {
@@ -145,6 +145,8 @@ class Game {
             if (e.target.closest('.skill-buttons')) return;
             
             this.touch.active = true;
+            // 触摸时禁用键盘控制
+            this.keyboardActive = false;
             if (e.touches.length > 0) {
                 this.touch.x = e.touches[0].clientX;
                 this.touch.y = e.touches[0].clientY;
@@ -166,10 +168,23 @@ class Game {
         // 鼠标控制 - 鼠标移动即可控制，无需按住
         const handleMouseMove = (e) => {
             if (this.state !== GameState.PLAYING) return;
+            // 如果键盘正在控制，忽略鼠标移动
+            if (this.keyboardActive) return;
+            
             this.mouse.x = e.clientX;
             this.mouse.y = e.clientY;
             // 鼠标移动时自动激活控制
             this.mouse.active = true;
+        };
+        
+        // 鼠标点击时切换到鼠标控制
+        const handleMouseDown = (e) => {
+            if (this.state !== GameState.PLAYING) return;
+            // 点击时切换到鼠标控制
+            this.keyboardActive = false;
+            this.mouse.active = true;
+            this.mouse.x = e.clientX;
+            this.mouse.y = e.clientY;
         };
         
         // 鼠标离开窗口时停止控制
@@ -178,7 +193,7 @@ class Game {
         };
         
         const handleMouseEnter = () => {
-            if (this.state === GameState.PLAYING) {
+            if (this.state === GameState.PLAYING && !this.keyboardActive) {
                 this.mouse.active = true;
             }
         };
@@ -190,6 +205,7 @@ class Game {
         document.addEventListener('touchcancel', handleTouchEnd);
         
         document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mousedown', handleMouseDown);
         document.addEventListener('mouseleave', handleMouseLeave);
         document.addEventListener('mouseenter', handleMouseEnter);
     }
@@ -720,8 +736,11 @@ class Player {
         if (keyLeft) dx -= 1;
         if (keyRight) dx += 1;
         
-        // 如果有键盘输入，禁用鼠标/触摸控制
+        // 如果有键盘输入，设置标志并禁用鼠标/触摸控制
         const usingKeyboard = dx !== 0 || dy !== 0;
+        if (usingKeyboard) {
+            game.keyboardActive = true;
+        }
         
         // 触摸控制 - 仅在未使用键盘时
         if (!usingKeyboard && game.touch.active && !usingTouchOrMouse) {
