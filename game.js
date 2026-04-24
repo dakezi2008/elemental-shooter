@@ -1618,15 +1618,15 @@ class Enemy {
     }
     
     getShotInterval() {
-        // 根据敌人类型返回不同的射击间隔，随等级提高而加快
-        const levelBonus = Math.max(0, (this.level - 2) * 200); // 每升1级加快200ms
+        // 根据敌人类型返回不同的射击间隔，随等级提高而加快（频率大幅提高）
+        const levelBonus = Math.max(0, (this.level - 2) * 300); // 每升1级加快300ms
         
         switch(this.type) {
-            case 'basic': return Math.max(1500, 2500 - levelBonus);      // 基础敌人2.5秒一发，最低1.5秒
-            case 'fast': return Math.max(1200, 2000 - levelBonus);       // 快速敌人2秒一发，最低1.2秒
-            case 'tank': return Math.max(2500, 3500 - levelBonus);       // 坦克敌人3.5秒一发，最低2.5秒
-            case 'shooter': return Math.max(800, 1200 - levelBonus);     // 射击敌人1.2秒一发，最低0.8秒
-            default: return 2500;
+            case 'basic': return Math.max(800, 1800 - levelBonus);       // 基础敌人1.8秒一发，最低0.8秒
+            case 'fast': return Math.max(600, 1200 - levelBonus);        // 快速敌人1.2秒一发，最低0.6秒
+            case 'tank': return Math.max(1800, 2800 - levelBonus);       // 坦克敌人2.8秒一发，最低1.8秒
+            case 'shooter': return Math.max(400, 700 - levelBonus);      // 射击敌人0.7秒一发，最低0.4秒
+            default: return 1800;
         }
     }
     
@@ -1636,6 +1636,9 @@ class Enemy {
         // 敌人子弹伤害系数（比BOSS低很多，让玩家有耐久体验）
         const damageScale = 0.3; // 只有30%的面板伤害
         
+        // 子弹速度随等级提高
+        const speedBonus = this.level * 0.3;
+        
         switch(this.type) {
             case 'basic':
                 // 基础敌人 - 2连发（随等级增加）
@@ -1644,7 +1647,7 @@ class Enemy {
                     setTimeout(() => {
                         if (this.active) {
                             const spreadAngle = angle + (Math.random() - 0.5) * 0.1;
-                            this.createEnemyBullet(game, spreadAngle, 3, this.damage * damageScale, 4);
+                            this.createEnemyBullet(game, spreadAngle, 4 + speedBonus, this.damage * damageScale, 4);
                         }
                     }, i * 150);
                 }
@@ -1656,7 +1659,7 @@ class Enemy {
                     setTimeout(() => {
                         if (this.active) {
                             const spreadAngle = angle + (Math.random() - 0.5) * 0.15;
-                            const speed = 5 + Math.random() * 2;
+                            const speed = 6 + Math.random() * 2 + speedBonus;
                             this.createEnemyBullet(game, spreadAngle, speed, this.damage * damageScale * 0.8, 3);
                         }
                     }, i * 100);
@@ -1668,7 +1671,7 @@ class Enemy {
                 const spreadAngle = Math.PI / 4; // 45度扇形
                 for (let i = 0; i < tankCount; i++) {
                     const bulletAngle = angle - spreadAngle / 2 + (spreadAngle / (tankCount - 1)) * i;
-                    this.createEnemyBullet(game, bulletAngle, 2.5, this.damage * damageScale * 1.2, 6);
+                    this.createEnemyBullet(game, bulletAngle, 3.5 + speedBonus * 0.7, this.damage * damageScale * 1.2, 6);
                 }
                 break;
             case 'shooter':
@@ -1678,7 +1681,7 @@ class Enemy {
                     setTimeout(() => {
                         if (this.active) {
                             const spreadAngle = angle + (Math.random() - 0.5) * 0.25;
-                            this.createEnemyBullet(game, spreadAngle, 5, this.damage * damageScale, 4);
+                            this.createEnemyBullet(game, spreadAngle, 6 + speedBonus, this.damage * damageScale, 4);
                         }
                     }, i * 80);
                 }
@@ -2066,7 +2069,7 @@ class Boss {
         this.targetY = y;
         this.name = isMiniBoss ? '精英守卫' : '元素吞噬者';
         this.damageMultiplier = isMiniBoss ? 0.4 : 0.5;  // 大幅降低伤害倍率
-        this.bulletSpeed = isMiniBoss ? 5 : 4;
+        this.bulletSpeed = isMiniBoss ? 3.5 : 3;  // 降低子弹速度，便于躲避
         this.attackPatterns = isMiniBoss ? 
             ['spread', 'laser', 'fan', 'ring'] : 
             ['spread', 'laser', 'spiral', 'fan', 'ring', 'burst', 'cross', 'accelerate', 'homing'];
@@ -2081,7 +2084,7 @@ class Boss {
             this.phase = 2;
             this.attackInterval = 2000;
             this.damageMultiplier = 0.7;  // 降低伤害增长
-            this.bulletSpeed = 5;
+            this.bulletSpeed = 3.8;  // 稍微加速但仍较慢
             this.attackPatterns = ['spread', 'laser'];
             game.screenShake(10);
         } else if (healthPercent < 0.5 && this.phase === 2) {
@@ -2089,7 +2092,7 @@ class Boss {
             this.attackInterval = 1500;
             this.speed = 1.8;
             this.damageMultiplier = 0.9;  // 降低伤害增长
-            this.bulletSpeed = 6;
+            this.bulletSpeed = 4.5;  // 中等速度
             this.attackPatterns = ['spread', 'laser', 'spiral'];
             game.screenShake(15);
         } else if (healthPercent < 0.25 && this.phase === 3) {
@@ -2098,7 +2101,7 @@ class Boss {
             this.attackInterval = 1000;
             this.speed = 2.5;
             this.damageMultiplier = 1.2;  // 狂暴模式伤害适中
-            this.bulletSpeed = 7;
+            this.bulletSpeed = 5.5;  // 狂暴模式速度适中，不至于太快
             this.attackPatterns = ['spread', 'laser', 'spiral', 'chaos'];
             game.screenShake(20);
         }
