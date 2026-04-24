@@ -1602,8 +1602,10 @@ class Enemy {
             this.y += (dy / dist) * this.speed * this.speedMultiplier;
         }
         
-        // 所有敌人都会发射子弹，从2级开始
-        if (this.level >= 2) {
+        // 所有敌人都会发射子弹
+        // 快速敌人(fast)从2级开始，其他从1级开始
+        const canShoot = this.type === 'fast' ? this.level >= 2 : this.level >= 1;
+        if (canShoot) {
             this.lastShot = (this.lastShot || 0) + dt * 1000;
             const shotInterval = this.getShotInterval();
             if (this.lastShot > shotInterval) {
@@ -1618,15 +1620,16 @@ class Enemy {
     }
     
     getShotInterval() {
-        // 根据敌人类型返回不同的射击间隔，随等级提高而加快（频率大幅提高）
-        const levelBonus = Math.max(0, (this.level - 2) * 300); // 每升1级加快300ms
+        // 根据敌人类型返回不同的射击间隔，随等级提高而加快
+        // 每升1级加快500ms，但基础间隔降低
+        const levelBonus = Math.max(0, (this.level - 1) * 500); // 每升1级加快500ms
         
         switch(this.type) {
-            case 'basic': return Math.max(800, 1800 - levelBonus);       // 基础敌人1.8秒一发，最低0.8秒
-            case 'fast': return Math.max(600, 1200 - levelBonus);        // 快速敌人1.2秒一发，最低0.6秒
-            case 'tank': return Math.max(1800, 2800 - levelBonus);       // 坦克敌人2.8秒一发，最低1.8秒
-            case 'shooter': return Math.max(400, 700 - levelBonus);      // 射击敌人0.7秒一发，最低0.4秒
-            default: return 1800;
+            case 'basic': return Math.max(2000, 4000 - levelBonus);      // 基础敌人4秒一发，最低2秒
+            case 'fast': return Math.max(800, 1500 - levelBonus);        // 快速敌人1.5秒一发，最低0.8秒（保持较快）
+            case 'tank': return Math.max(3000, 5000 - levelBonus);       // 坦克敌人5秒一发，最低3秒
+            case 'shooter': return Math.max(1200, 2500 - levelBonus);    // 射击敌人2.5秒一发，最低1.2秒
+            default: return 3000;
         }
     }
     
@@ -1636,9 +1639,7 @@ class Enemy {
         // 敌人子弹伤害系数（比BOSS低很多，让玩家有耐久体验）
         const damageScale = 0.3; // 只有30%的面板伤害
         
-        // 子弹速度随等级提高
-        const speedBonus = this.level * 0.3;
-        
+        // 子弹速度固定，不随等级提升
         switch(this.type) {
             case 'basic':
                 // 基础敌人 - 2连发（随等级增加）
@@ -1647,7 +1648,7 @@ class Enemy {
                     setTimeout(() => {
                         if (this.active) {
                             const spreadAngle = angle + (Math.random() - 0.5) * 0.1;
-                            this.createEnemyBullet(game, spreadAngle, 4 + speedBonus, this.damage * damageScale, 4);
+                            this.createEnemyBullet(game, spreadAngle, 3.5, this.damage * damageScale, 4);
                         }
                     }, i * 150);
                 }
@@ -1659,7 +1660,7 @@ class Enemy {
                     setTimeout(() => {
                         if (this.active) {
                             const spreadAngle = angle + (Math.random() - 0.5) * 0.15;
-                            const speed = 6 + Math.random() * 2 + speedBonus;
+                            const speed = 5 + Math.random() * 1.5;
                             this.createEnemyBullet(game, spreadAngle, speed, this.damage * damageScale * 0.8, 3);
                         }
                     }, i * 100);
@@ -1671,7 +1672,7 @@ class Enemy {
                 const spreadAngle = Math.PI / 4; // 45度扇形
                 for (let i = 0; i < tankCount; i++) {
                     const bulletAngle = angle - spreadAngle / 2 + (spreadAngle / (tankCount - 1)) * i;
-                    this.createEnemyBullet(game, bulletAngle, 3.5 + speedBonus * 0.7, this.damage * damageScale * 1.2, 6);
+                    this.createEnemyBullet(game, bulletAngle, 2.5, this.damage * damageScale * 1.2, 6);
                 }
                 break;
             case 'shooter':
@@ -1681,7 +1682,7 @@ class Enemy {
                     setTimeout(() => {
                         if (this.active) {
                             const spreadAngle = angle + (Math.random() - 0.5) * 0.25;
-                            this.createEnemyBullet(game, spreadAngle, 6 + speedBonus, this.damage * damageScale, 4);
+                            this.createEnemyBullet(game, spreadAngle, 4.5, this.damage * damageScale, 4);
                         }
                     }, i * 80);
                 }
@@ -2068,7 +2069,7 @@ class Boss {
         this.targetX = x;
         this.targetY = y;
         this.name = isMiniBoss ? '精英守卫' : '元素吞噬者';
-        this.damageMultiplier = isMiniBoss ? 0.4 : 0.5;  // 大幅降低伤害倍率
+        this.damageMultiplier = isMiniBoss ? 0.25 : 0.3;  // 进一步降低伤害倍率
         this.bulletSpeed = isMiniBoss ? 3.5 : 3;  // 降低子弹速度，便于躲避
         this.attackPatterns = isMiniBoss ? 
             ['spread', 'laser', 'fan', 'ring'] : 
@@ -2083,7 +2084,7 @@ class Boss {
         if (healthPercent < 0.75 && this.phase === 1) {
             this.phase = 2;
             this.attackInterval = 2000;
-            this.damageMultiplier = 0.7;  // 降低伤害增长
+            this.damageMultiplier = isMiniBoss ? 0.4 : 0.5;  // 降低伤害增长
             this.bulletSpeed = 3.8;  // 稍微加速但仍较慢
             this.attackPatterns = ['spread', 'laser'];
             game.screenShake(10);
@@ -2091,7 +2092,7 @@ class Boss {
             this.phase = 3;
             this.attackInterval = 1500;
             this.speed = 1.8;
-            this.damageMultiplier = 0.9;  // 降低伤害增长
+            this.damageMultiplier = isMiniBoss ? 0.55 : 0.7;  // 降低伤害增长
             this.bulletSpeed = 4.5;  // 中等速度
             this.attackPatterns = ['spread', 'laser', 'spiral'];
             game.screenShake(15);
@@ -2100,7 +2101,7 @@ class Boss {
             this.rageMode = true;
             this.attackInterval = 1000;
             this.speed = 2.5;
-            this.damageMultiplier = 1.2;  // 狂暴模式伤害适中
+            this.damageMultiplier = isMiniBoss ? 0.75 : 0.9;  // 狂暴模式伤害适中
             this.bulletSpeed = 5.5;  // 狂暴模式速度适中，不至于太快
             this.attackPatterns = ['spread', 'laser', 'spiral', 'chaos'];
             game.screenShake(20);
