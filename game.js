@@ -681,11 +681,22 @@ class Player {
             if (skill.cooldown > 0) {
                 skill.cooldown -= dt;
                 const overlay = document.getElementById(`skill-cd-${index}`);
+                const btn = overlay?.parentElement;
                 if (overlay) {
                     const t = TALENTS[skill.key];
                     const percent = (skill.cooldown / (t.skillCooldown / 1000)) * 100;
-                    overlay.style.height = percent + '%';
+                    // J技能(索引0)从右向左填充宽度，K技能(索引1)从下向上填充高度
+                    if (index === 0) {
+                        overlay.style.width = percent + '%';
+                    } else {
+                        overlay.style.height = percent + '%';
+                    }
                 }
+                if (btn) btn.classList.add('cooldown');
+            } else {
+                const overlay = document.getElementById(`skill-cd-${index}`);
+                const btn = overlay?.parentElement;
+                if (btn) btn.classList.remove('cooldown');
             }
             
             if (skill.active) {
@@ -757,16 +768,16 @@ class Player {
             }
         }
         
-        // 雷霆技能特效 - 全屏闪电风暴
+        // 雷霆技能特效 - 超酷炫全屏闪电风暴
         if (this.skillEffects.thunderChain) {
-            // 大范围闪电 - 半屏以上
-            if (Math.random() < 0.7) {
-                const lightningCount = 5;
+            // 超大面积闪电 - 覆盖全屏
+            if (Math.random() < 0.8) {
+                const lightningCount = 8;
                 for (let i = 0; i < lightningCount; i++) {
-                    const angle = (Math.PI * 2 / lightningCount) * i + Date.now() / 200 + Math.random() * 0.5;
-                    const startDist = 20;
-                    const endDist = 250 + Math.random() * 150; // 扩大到半屏以上
-                    game.particles.push(new BigLightningParticle(
+                    const angle = (Math.PI * 2 / lightningCount) * i + Date.now() / 150 + Math.random() * 0.8;
+                    const startDist = 15;
+                    const endDist = 350 + Math.random() * 200; // 几乎全屏
+                    game.particles.push(new UltraLightningParticle(
                         this.x + Math.cos(angle) * startDist,
                         this.y + Math.sin(angle) * startDist,
                         this.x + Math.cos(angle) * endDist,
@@ -774,29 +785,39 @@ class Player {
                     ));
                 }
             }
-            // 随机全屏闪电
-            if (Math.random() < 0.4) {
-                const angle = Math.random() * Math.PI * 2;
-                const dist = 100 + Math.random() * 300;
-                game.particles.push(new BigLightningParticle(
-                    this.x,
-                    this.y,
-                    this.x + Math.cos(angle) * dist,
-                    this.y + Math.sin(angle) * dist
-                ));
+            // 交叉闪电网络
+            if (Math.random() < 0.5) {
+                for (let i = 0; i < 3; i++) {
+                    const angle1 = Math.random() * Math.PI * 2;
+                    const angle2 = angle1 + Math.PI / 2 + (Math.random() - 0.5);
+                    const dist = 200 + Math.random() * 250;
+                    game.particles.push(new UltraLightningParticle(
+                        this.x + Math.cos(angle1) * dist,
+                        this.y + Math.sin(angle1) * dist,
+                        this.x + Math.cos(angle2) * dist,
+                        this.y + Math.sin(angle2) * dist
+                    ));
+                }
             }
-            // 电火花 - 更多更明显
-            for (let i = 0; i < 8; i++) {
+            // 电火花风暴
+            for (let i = 0; i < 12; i++) {
                 const angle = Math.random() * Math.PI * 2;
-                const dist = 30 + Math.random() * 100;
+                const dist = 20 + Math.random() * 150;
                 game.particles.push(new ThunderSparkParticle(
                     this.x + Math.cos(angle) * dist,
                     this.y + Math.sin(angle) * dist
                 ));
             }
-            // 雷霆光环
-            if (Math.random() < 0.3) {
+            // 多层雷霆光环
+            if (Math.random() < 0.4) {
                 game.particles.push(new ThunderRing(this.x, this.y));
+            }
+            if (Math.random() < 0.2) {
+                game.particles.push(new ThunderRing(this.x, this.y));
+            }
+            // 雷霆核心爆发
+            if (Math.random() < 0.3) {
+                game.particles.push(new ThunderCore(this.x, this.y));
             }
         }
         
@@ -1952,6 +1973,225 @@ class ThunderRing {
         // 内部填充
         ctx.fillStyle = 'rgba(254, 202, 87, 0.1)';
         ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
+// ==================== 超酷炫闪电粒子 ====================
+class UltraLightningParticle {
+    constructor(x1, y1, x2, y2) {
+        this.x1 = x1;
+        this.y1 = y1;
+        this.x2 = x2;
+        this.y2 = y2;
+        this.life = 0.25 + Math.random() * 0.15;
+        this.maxLife = this.life;
+        this.active = true;
+        this.segments = this.generateSegments();
+        this.branches = this.generateBranches();
+        this.glowIntensity = 1 + Math.random();
+    }
+    
+    generateSegments() {
+        const segments = [];
+        const dx = this.x2 - this.x1;
+        const dy = this.y2 - this.y1;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const count = Math.floor(dist / 12);
+        
+        let x = this.x1;
+        let y = this.y1;
+        
+        for (let i = 0; i < count; i++) {
+            const t = (i + 1) / count;
+            const targetX = this.x1 + dx * t;
+            const targetY = this.y1 + dy * t;
+            const offsetX = (Math.random() - 0.5) * 40;
+            const offsetY = (Math.random() - 0.5) * 40;
+            
+            segments.push({
+                x1: x,
+                y1: y,
+                x2: targetX + offsetX,
+                y2: targetY + offsetY
+            });
+            
+            x = targetX + offsetX;
+            y = targetY + offsetY;
+        }
+        
+        segments.push({
+            x1: x,
+            y1: y,
+            x2: this.x2,
+            y2: this.y2
+        });
+        
+        return segments;
+    }
+    
+    generateBranches() {
+        const branches = [];
+        const numBranches = 3 + Math.floor(Math.random() * 4);
+        
+        for (let i = 0; i < numBranches; i++) {
+            const segIndex = Math.floor(Math.random() * (this.segments.length - 1)) + 1;
+            const seg = this.segments[segIndex];
+            const angle = Math.random() * Math.PI * 2;
+            const length = 40 + Math.random() * 80;
+            
+            const branchSegments = [];
+            let bx = seg.x1;
+            let by = seg.y1;
+            const steps = 3 + Math.floor(Math.random() * 3);
+            
+            for (let j = 0; j < steps; j++) {
+                const t = (j + 1) / steps;
+                const targetX = seg.x1 + Math.cos(angle) * length * t;
+                const targetY = seg.y1 + Math.sin(angle) * length * t;
+                const offsetX = (Math.random() - 0.5) * 25;
+                const offsetY = (Math.random() - 0.5) * 25;
+                
+                branchSegments.push({
+                    x1: bx,
+                    y1: by,
+                    x2: targetX + offsetX,
+                    y2: targetY + offsetY
+                });
+                
+                bx = targetX + offsetX;
+                by = targetY + offsetY;
+            }
+            
+            branches.push(branchSegments);
+        }
+        
+        return branches;
+    }
+    
+    update(dt) {
+        this.life -= dt;
+        if (this.life <= 0) {
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        const alpha = this.life / this.maxLife;
+        ctx.globalAlpha = alpha;
+        
+        // 外层超强光晕
+        ctx.strokeStyle = '#ffeb3b';
+        ctx.lineWidth = 12 * this.glowIntensity;
+        ctx.shadowBlur = 50 * this.glowIntensity;
+        ctx.shadowColor = '#feca57';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        this.drawPath(ctx, this.segments);
+        
+        // 中层光晕
+        ctx.strokeStyle = '#feca57';
+        ctx.lineWidth = 6;
+        ctx.shadowBlur = 30;
+        this.drawPath(ctx, this.segments);
+        
+        // 内层核心
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 15;
+        this.drawPath(ctx, this.segments);
+        
+        // 绘制分支
+        for (const branch of this.branches) {
+            ctx.strokeStyle = '#feca57';
+            ctx.lineWidth = 4;
+            ctx.shadowBlur = 20;
+            this.drawPath(ctx, branch);
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1.5;
+            ctx.shadowBlur = 8;
+            this.drawPath(ctx, branch);
+        }
+        
+        ctx.restore();
+    }
+    
+    drawPath(ctx, segments) {
+        if (segments.length === 0) return;
+        ctx.beginPath();
+        ctx.moveTo(segments[0].x1, segments[0].y1);
+        for (const seg of segments) {
+            ctx.lineTo(seg.x2, seg.y2);
+        }
+        ctx.stroke();
+    }
+}
+
+// ==================== 雷霆核心爆发 ====================
+class ThunderCore {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = 10;
+        this.maxRadius = 80;
+        this.life = 0.5;
+        this.maxLife = this.life;
+        this.active = true;
+        this.pulseCount = 0;
+    }
+    
+    update(dt) {
+        this.radius += (this.maxRadius - this.radius) * 0.15;
+        this.life -= dt;
+        this.pulseCount += dt * 20;
+        
+        if (this.life <= 0) {
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        const alpha = this.life / this.maxLife;
+        ctx.globalAlpha = alpha;
+        
+        // 脉冲效果
+        const pulse = Math.sin(this.pulseCount) * 0.3 + 0.7;
+        
+        // 外圈光晕
+        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius * 2);
+        gradient.addColorStop(0, 'rgba(255, 235, 59, 0.8)');
+        gradient.addColorStop(0.5, 'rgba(254, 202, 87, 0.4)');
+        gradient.addColorStop(1, 'rgba(254, 202, 87, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 2 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 核心
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = '#feca57';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 0.5 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 闪电纹路
+        ctx.strokeStyle = '#ffeb3b';
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 20;
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i + this.pulseCount * 0.5;
+            const r1 = this.radius * 0.3;
+            const r2 = this.radius * 0.9;
+            ctx.beginPath();
+            ctx.moveTo(this.x + Math.cos(angle) * r1, this.y + Math.sin(angle) * r1);
+            ctx.lineTo(this.x + Math.cos(angle) * r2, this.y + Math.sin(angle) * r2);
+            ctx.stroke();
+        }
         
         ctx.restore();
     }

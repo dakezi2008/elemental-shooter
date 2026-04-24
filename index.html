@@ -318,34 +318,36 @@
             transition: width 0.3s;
         }
 
-        /* 虚拟摇杆 */
+        /* 虚拟摇杆 - 增大尺寸 */
         .joystick-zone {
             position: absolute;
             bottom: 80px;
             left: 20px;
-            width: 120px;
-            height: 120px;
+            width: 150px;
+            height: 150px;
         }
 
         .joystick-base {
             position: absolute;
             width: 100%;
             height: 100%;
-            border: 3px solid rgba(255, 255, 255, 0.3);
+            border: 4px solid rgba(255, 255, 255, 0.4);
             border-radius: 50%;
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.4);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
         .joystick-stick {
             position: absolute;
-            width: 50px;
-            height: 50px;
-            background: rgba(255, 255, 255, 0.5);
+            width: 65px;
+            height: 65px;
+            background: rgba(255, 255, 255, 0.6);
             border-radius: 50%;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             transition: transform 0.1s;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
         }
 
         /* 技能按钮 - 斜向布局 */
@@ -378,8 +380,42 @@
             transform: scale(0.92);
         }
 
-        .skill-btn.cooldown {
-            opacity: 0.5;
+        /* J技能按钮CD效果 - 从右向左填充 */
+        .skill-btn:nth-child(1).cooldown {
+            opacity: 0.7;
+            filter: grayscale(0.5) brightness(0.7);
+            transform: translateX(-25px) scale(0.95);
+        }
+
+        .skill-btn:nth-child(1) .cooldown-overlay {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: auto;
+            width: 100%;
+            background: linear-gradient(to left, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.4));
+            border-radius: 0 50% 50% 0;
+            transition: width 0.1s linear;
+        }
+
+        /* K技能按钮CD效果 - 从下向上填充 */
+        .skill-btn:nth-child(2).cooldown {
+            opacity: 0.7;
+            filter: grayscale(0.5) brightness(0.7);
+            transform: translateX(15px) scale(0.95);
+        }
+
+        .skill-btn:nth-child(2) .cooldown-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            top: auto;
+            height: 100%;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.4));
+            border-radius: 0 0 50% 50%;
+            transition: height 0.1s linear;
         }
 
         .skill-btn .icon {
@@ -393,23 +429,13 @@
             font-weight: bold;
         }
 
-        .skill-btn .cooldown-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 0 0 50% 50%;
-            transition: height 0.1s;
-        }
-
-        /* 斜向偏移 - J在右下，K在左上 */
+        /* 斜向偏移 - J在左上，K在右下，增大间距 */
         .skill-btn:nth-child(1) {
-            transform: translateX(-25px);
+            transform: translateX(-35px);
         }
 
         .skill-btn:nth-child(2) {
-            transform: translateX(15px);
+            transform: translateX(25px);
         }
 
         /* 游戏结束界面 */
