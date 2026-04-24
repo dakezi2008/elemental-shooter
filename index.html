@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>元素射击 - Elemental Shooter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: none;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+            background: #0a0a15;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(180deg, #0a0a15 0%, #1a1a3e 50%, #0a0a15 100%);
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .ui-layer.interactive {
+            pointer-events: auto;
+        }
+
+        /* 主菜单 */
+        .main-menu {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            background: radial-gradient(ellipse at center, #1a1a4e 0%, #0a0a15 70%);
+        }
+
+        .game-title {
+            font-size: 48px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(255, 107, 107, 0.5);
+            margin-bottom: 10px;
+            animation: titleGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes titleGlow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+        }
+
+        .game-subtitle {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 40px;
+        }
+
+        .menu-btn {
+            padding: 15px 50px;
+            margin: 10px;
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 30px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* 天赋选择界面 */
+        .talent-select {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            background: radial-gradient(ellipse at center, #1a1a4e 0%, #0a0a15 70%);
+            padding: 20px;
+        }
+
+        .talent-select.active {
+            display: flex;
+        }
+
+        .select-title {
+            color: white;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .select-hint {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .talent-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            max-width: 400px;
+        }
+
+        .talent-card {
+            width: 160px;
+            height: 200px;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 3px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .talent-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: inherit;
+            opacity: 0.3;
+            z-index: 0;
+        }
+
+        .talent-card > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .talent-card.fire {
+            background: linear-gradient(135deg, rgba(255, 107, 107, 0.2), rgba(238, 90, 36, 0.2));
+            border-color: #ff6b6b;
+        }
+
+        .talent-card.wind {
+            background: linear-gradient(135deg, rgba(72, 219, 251, 0.2), rgba(10, 189, 227, 0.2));
+            border-color: #48dbfb;
+        }
+
+        .talent-card.thunder {
+            background: linear-gradient(135deg, rgba(254, 202, 87, 0.2), rgba(255, 159, 243, 0.2));
+            border-color: #feca57;
+        }
+
+        .talent-card.ice {
+            background: linear-gradient(135deg, rgba(162, 155, 254, 0.2), rgba(108, 92, 231, 0.2));
+            border-color: #a29bfe;
+        }
+
+        .talent-card:hover {
+            transform: scale(1.05);
+        }
+
+        .talent-card.selected {
+            box-shadow: 0 0 30px currentColor;
+            transform: scale(1.1);
+        }
+
+        .talent-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .talent-name {
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .talent-desc {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            text-align: center;
+            padding: 0 10px;
+        }
+
+        .start-game-btn {
+            margin-top: 30px;
+            padding: 15px 60px;
+            font-size: 20px;
+        }
+
+        .start-game-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* HUD */
+        .hud {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px;
+        }
+
+        .hud.active {
+            display: block;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .health-bar {
+            width: 150px;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ee5a36);
+            transition: width 0.3s;
+        }
+
+        .level-info {
+            color: white;
+            text-align: right;
+        }
+
+        .level-text {
+            font-size: 14px;
+            color: #888;
+        }
+
+        .score-text {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .timer {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .xp-bar {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .xp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #feca57, #ff9ff3);
+            transition: width 0.3s;
+        }
+
+        /* 虚拟摇杆 */
+        .joystick-zone {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 120px;
+            height: 120px;
+        }
+
+        .joystick-base {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .joystick-stick {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s;
+        }
+
+        /* 技能按钮 */
+        .skill-buttons {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .skill-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: 3px solid;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .skill-btn:active {
+            transform: scale(0.95);
+        }
+
+        .skill-btn.cooldown {
+            opacity: 0.5;
+        }
+
+        .skill-btn .icon {
+            font-size: 24px;
+        }
+
+        .skill-btn .key {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .skill-btn .cooldown-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 0 0 50% 50%;
+            transition: height 0.1s;
+        }
+
+        /* 游戏结束界面 */
+        .game-over {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .game-over.active {
+            display: flex;
+        }
+
+        .game-over-title {
+            font-size: 48px;
+            color: #ff6b6b;
+            margin-bottom: 20px;
+        }
+
+        .final-score {
+            color: white;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .final-level {
+            color: #888;
+            font-size: 18px;
+            margin-bottom: 30px;
+        }
+
+        /* Boss血条 */
+        .boss-hud {
+            display: none;
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 400px;
+        }
+
+        .boss-hud.active {
+            display: block;
+        }
+
+        .boss-name {
+            color: #ff6b6b;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 5px;
+            text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+        }
+
+        .boss-health-bar {
+            width: 100%;
+            height: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #ff6b6b;
+        }
+
+        .boss-health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ee5a36);
+            transition: width 0.3s;
+        }
+
+        /* 暂停菜单 */
+        .pause-menu {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .pause-menu.active {
+            display: flex;
+        }
+
+        .pause-title {
+            font-size: 36px;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        /* 升级提示 */
+        .level-up {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .level-up.active {
+            display: block;
+            animation: levelUpAnim 2s ease-out forwards;
+        }
+
+        @keyframes levelUpAnim {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .level-up-text {
+            font-size: 48px;
+            color: #feca57;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(254, 202, 87, 0.8);
+        }
+
+        /* 伤害数字 */
+        .damage-text {
+            position: absolute;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+            pointer-events: none;
+            animation: damageFloat 1s ease-out forwards;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+        }
+
+        @keyframes damageFloat {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-30px); }
+        }
+
+        /* 警告文字 */
+        .warning-text {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ff6b6b;
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
+            animation: warningPulse 1s ease-in-out infinite;
+            display: none;
+        }
+
+        .warning-text.active {
+            display: block;
+        }
+
+        @keyframes warningPulse {
+            0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+            50% { opacity: 0.7; transform: translateX(-50%) scale(1.1); }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI Layer -->
+    <div class="ui-layer interactive" id="uiLayer">
+        <!-- 主菜单 -->
+        <div class="main-menu" id="mainMenu">
+            <h1 class="game-title">元素射击</h1>
+            <p class="game-subtitle">Elemental Shooter</p>
+            <button class="menu-btn btn-primary" onclick="showTalentSelect()">开始游戏</button>
+            <button class="menu-btn btn-secondary" onclick="showInstructions()">游戏说明</button>
+        </div>
+
+        <!-- 天赋选择 -->
+        <div class="talent-select" id="talentSelect">
+            <h2 class="select-title">选择你的元素天赋</h2>
+            <p class="select-hint">请选择 2 种天赋组合（已选 <span id="selectedCount">0</span>/2）</p>
+            <div class="talent-grid">
+                <div class="talent-card fire" data-talent="fire" onclick="selectTalent('fire')">
+                    <div class="talent-icon">🔥</div>
+                    <div class="talent-name">烈焰</div>
+                    <div class="talent-desc">高伤害火焰弹，持续燃烧</div>
+                </div>
+                <div class="talent-card wind" data-talent="wind" onclick="selectTalent('wind')">
+                    <div class="talent-icon">💨</div>
+                    <div class="talent-name">疾风</div>
+                    <div class="talent-desc">高速射击，穿透敌人</div>
+                </div>
+                <div class="talent-card thunder" data-talent="thunder" onclick="selectTalent('thunder')">
+                    <div class="talent-icon">⚡</div>
+                    <div class="talent-name">雷霆</div>
+                    <div class="talent-desc">连锁闪电，范围伤害</div>
+                </div>
+                <div class="talent-card ice" data-talent="ice" onclick="selectTalent('ice')">
+                    <div class="talent-icon">❄️</div>
+                    <div class="talent-name">寒冰</div>
+                    <div class="talent-desc">减速冻结，控制敌人</div>
+                </div>
+            </div>
+            <button class="menu-btn btn-primary start-game-btn" id="startGameBtn" onclick="startGame()" disabled>开始战斗</button>
+            <button class="menu-btn btn-secondary" onclick="showMainMenu()" style="margin-top: 15px;">返回</button>
+        </div>
+
+        <!-- HUD -->
+        <div class="hud" id="hud">
+            <div class="hud-top">
+                <div class="health-bar">
+                    <div class="health-fill" id="healthFill" style="width: 100%;"></div>
+                </div>
+                <div class="level-info">
+                    <div class="level-text">等级 <span id="levelText">1</span></div>
+                    <div class="score-text" id="scoreText">0</div>
+                </div>
+            </div>
+            <div class="timer" id="timer">05:00</div>
+            <div class="xp-bar">
+                <div class="xp-fill" id="xpFill" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <!-- Boss HUD -->
+        <div class="boss-hud" id="bossHud">
+            <div class="boss-name" id="bossName">BOSS</div>
+            <div class="boss-health-bar">
+                <div class="boss-health-fill" id="bossHealthFill" style="width: 100%;"></div>
+            </div>
+        </div>
+
+        <!-- 警告 -->
+        <div class="warning-text" id="warningText">⚠️ BOSS 即将出现 ⚠️</div>
+
+        <!-- 升级提示 -->
+        <div class="level-up" id="levelUp">
+            <div class="level-up-text">LEVEL UP!</div>
+        </div>
+
+        <!-- 虚拟摇杆 -->
+        <div class="joystick-zone" id="joystickZone">
+            <div class="joystick-base"></div>
+            <div class="joystick-stick" id="joystickStick"></div>
+        </div>
+
+        <!-- 技能按钮 -->
+        <div class="skill-buttons" id="skillButtons">
+            <!-- 动态生成 -->
+        </div>
+
+        <!-- 暂停菜单 -->
+        <div class="pause-menu" id="pauseMenu">
+            <h2 class="pause-title">游戏暂停</h2>
+            <button class="menu-btn btn-primary" onclick="resumeGame()">继续游戏</button>
+            <button class="menu-btn btn-secondary" onclick="returnToMenu()">返回主菜单</button>
+        </div>
+
+        <!-- 游戏结束 -->
+        <div class="game-over" id="gameOver">
+            <h2 class="game-over-title" id="gameOverTitle">游戏结束</h2>
+            <div class="final-score">最终得分: <span id="finalScore">0</span></div>
+            <div class="final-level">到达等级: <span id="finalLevel">1</span></div>
+            <button class="menu-btn btn-primary" onclick="showTalentSelect()">再来一局</button>
+            <button class="menu-btn btn-secondary" onclick="showMainMenu()">主菜单</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
