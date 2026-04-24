@@ -790,6 +790,139 @@
         .levelup-option {
             position: relative;
         }
+
+        /* 玩家ID输入框 */
+        .player-id-input {
+            margin-bottom: 20px;
+        }
+
+        .player-id-input input {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: 2px solid #667eea;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            text-align: center;
+            width: 200px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .player-id-input input:focus {
+            border-color: #feca57;
+            box-shadow: 0 0 15px rgba(254, 202, 87, 0.3);
+        }
+
+        .player-id-input input::placeholder {
+            color: #888;
+        }
+
+        /* 排行榜 */
+        .leaderboard-section {
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            width: 90%;
+            max-width: 350px;
+        }
+
+        .leaderboard-section h3 {
+            color: #feca57;
+            font-size: 18px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .leaderboard-item.top3 {
+            background: linear-gradient(90deg, rgba(254, 202, 87, 0.2), rgba(254, 202, 87, 0.05));
+            border: 1px solid rgba(254, 202, 87, 0.3);
+        }
+
+        .leaderboard-rank {
+            font-weight: bold;
+            color: #feca57;
+            width: 30px;
+        }
+
+        .leaderboard-name {
+            flex: 1;
+            color: white;
+            text-align: left;
+            padding-left: 10px;
+        }
+
+        .leaderboard-score {
+            color: #48dbfb;
+            font-weight: bold;
+        }
+
+        /* 排行榜弹窗 */
+        .leaderboard-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 3000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .leaderboard-modal.active {
+            display: flex;
+        }
+
+        .leaderboard-content {
+            background: linear-gradient(135deg, #1a1a3e, #2d2d5a);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            border: 2px solid #667eea;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .leaderboard-content h2 {
+            color: #feca57;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .leaderboard-content .leaderboard-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .no-data {
+            color: #888;
+            font-size: 14px;
+            padding: 20px;
+        }
     </style>
 </head>
 <body>
@@ -801,7 +934,11 @@
         <div class="main-menu" id="mainMenu">
             <h1 class="game-title">元素射击</h1>
             <p class="game-subtitle">Elemental Shooter</p>
+            <div class="player-id-input">
+                <input type="text" id="playerIdInput" placeholder="输入你的ID" maxlength="12" autocomplete="off">
+            </div>
             <button class="menu-btn btn-primary" onclick="showTalentSelect()">开始游戏</button>
+            <button class="menu-btn btn-secondary" onclick="showLeaderboard()">排行榜</button>
             <button class="menu-btn btn-secondary" onclick="showInstructions()">游戏说明</button>
         </div>
 
@@ -920,6 +1057,17 @@
                 </div>
 
                 <div class="instructions-section">
+                    <h3>积分规则</h3>
+                    <ul>
+                        <li>击败敌人获得积分</li>
+                        <li>成功躲避子弹 +5分</li>
+                        <li>释放技能 -300分</li>
+                        <li>护盾被击中 -5分</li>
+                        <li>受到伤害 -3分</li>
+                    </ul>
+                </div>
+
+                <div class="instructions-section">
                     <h3>操作方式</h3>
                     <ul>
                         <li><strong>电脑：</strong>WASD/方向键移动，或移动鼠标控制方向，J/K释放技能</li>
@@ -952,13 +1100,13 @@
                     <div class="levelup-option" id="levelUpOptionA" onclick="selectLevelUpOption('multishot')">
                         <div class="option-icon">🔫</div>
                         <h3>增加弹道</h3>
-                        <p>额外发射1发子弹<br>无上限</p>
+                        <p>额外发射1发子弹<br>最多4次，满级后恢复30血量</p>
                         <div class="option-key">A / ←</div>
                     </div>
                     <div class="levelup-option" id="levelUpOptionB" onclick="selectLevelUpOption('width')">
                         <div class="option-icon">💥</div>
                         <h3>子弹强化</h3>
-                        <p>子弹大小+30%<br>更容易命中</p>
+                        <p>子弹大小+30%<br>最多4次，满级后+30护盾</p>
                         <div class="option-key">D / →</div>
                     </div>
                 </div>
@@ -983,8 +1131,21 @@
             <h2 class="game-over-title" id="gameOverTitle">游戏结束</h2>
             <div class="final-score">最终得分: <span id="finalScore">0</span></div>
             <div class="final-level">到达等级: <span id="finalLevel">1</span></div>
+            <div class="leaderboard-section" id="gameOverLeaderboard">
+                <h3>🏆 排行榜</h3>
+                <div class="leaderboard-list" id="leaderboardList"></div>
+            </div>
             <button class="menu-btn btn-primary" onclick="showTalentSelect()">再来一局</button>
             <button class="menu-btn btn-secondary" onclick="showMainMenu()">主菜单</button>
+        </div>
+
+        <!-- 排行榜弹窗 -->
+        <div class="leaderboard-modal" id="leaderboardModal">
+            <div class="leaderboard-content">
+                <h2>🏆 排行榜</h2>
+                <div class="leaderboard-list" id="modalLeaderboardList"></div>
+                <button class="menu-btn btn-secondary" onclick="hideLeaderboard()">关闭</button>
+            </div>
         </div>
     </div>
 
