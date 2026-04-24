@@ -3,12 +3,12 @@
 
 // ==================== 游戏配置 ====================
 const CONFIG = {
-    GAME_DURATION: 300,
+    GAME_DURATION: 180,  // 3分钟
     PLAYER_SPEED: 5,
     PLAYER_HEALTH: 100,
     BULLET_SPEED: 10,
-    SPAWN_INTERVAL: 2000,
-    BOSS_SPAWN_TIME: 240,
+    SPAWN_INTERVAL: 1500,  // 更快的生成间隔
+    BOSS_SPAWN_TIME: 120,  // 2分钟出现BOSS
     MAX_LEVEL: 20,
     XP_PER_LEVEL: [0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2700, 3250, 3850, 4500, 5200, 5950, 6750, 7600, 8500, 9450, 10450]
 };
@@ -248,10 +248,29 @@ class Game {
     
     spawnEnemy() {
         const types = ['basic', 'fast', 'tank', 'shooter'];
-        const weights = [0.5, 0.25, 0.15, 0.1];
+        // 随等级增加，敌人种类更多样化，高级敌人出现概率增加
+        const levelBonus = Math.min(this.level * 0.02, 0.2);
+        const weights = [
+            Math.max(0.3, 0.5 - levelBonus),  // basic减少
+            0.25 + levelBonus * 0.5,           // fast增加
+            0.15 + levelBonus * 0.3,           // tank增加
+            0.1 + levelBonus * 0.2             // shooter增加
+        ];
         const type = this.weightedRandom(types, weights);
         const x = Math.random() * (this.width - 60) + 30;
         this.enemies.push(new Enemy(x, -50, type, this.level));
+        
+        // 高等级时额外生成敌人
+        if (this.level >= 5 && Math.random() < 0.3) {
+            const x2 = Math.random() * (this.width - 60) + 30;
+            const type2 = this.weightedRandom(types, weights);
+            this.enemies.push(new Enemy(x2, -50, type2, this.level));
+        }
+        if (this.level >= 10 && Math.random() < 0.2) {
+            const x3 = Math.random() * (this.width - 60) + 30;
+            const type3 = this.weightedRandom(types, weights);
+            this.enemies.push(new Enemy(x3, -50, type3, this.level));
+        }
     }
     
     spawnBoss() {
@@ -1290,104 +1309,254 @@ class Enemy {
     }
     
     renderBasic(ctx) {
-        // 基础敌人 - 菱形
+        // 基础敌人 - 火焰恶魔造型
+        const time = Date.now() / 200;
+        const pulse = Math.sin(time) * 0.1 + 1;
+        
+        // 外层火焰光环
+        const outerGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size/2 * pulse);
+        outerGradient.addColorStop(0, 'rgba(255, 107, 107, 0.8)');
+        outerGradient.addColorStop(0.5, 'rgba(255, 107, 107, 0.3)');
+        outerGradient.addColorStop(1, 'rgba(255, 107, 107, 0)');
+        ctx.fillStyle = outerGradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size/2 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 主体 - 菱形带尖刺
         const gradient = ctx.createLinearGradient(0, -this.size/2, 0, this.size/2);
-        gradient.addColorStop(0, '#ff8585');
-        gradient.addColorStop(0.5, this.color);
-        gradient.addColorStop(1, this.darkenColor(this.color, 40));
+        gradient.addColorStop(0, '#ff6b6b');
+        gradient.addColorStop(0.5, '#ff4757');
+        gradient.addColorStop(1, '#c0392b');
         
         ctx.fillStyle = gradient;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#ff6b6b';
         ctx.beginPath();
+        // 上尖
         ctx.moveTo(0, -this.size/2);
+        ctx.lineTo(this.size/3, -this.size/6);
         ctx.lineTo(this.size/2, 0);
+        ctx.lineTo(this.size/3, this.size/6);
+        // 下尖
         ctx.lineTo(0, this.size/2);
+        ctx.lineTo(-this.size/3, this.size/6);
         ctx.lineTo(-this.size/2, 0);
+        ctx.lineTo(-this.size/3, -this.size/6);
         ctx.closePath();
         ctx.fill();
         
-        // 核心
+        // 邪恶眼睛
         ctx.fillStyle = '#fff';
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#fff';
         ctx.beginPath();
-        ctx.arc(0, 0, 6, 0, Math.PI * 2);
+        ctx.ellipse(-5, -3, 4, 6, 0, 0, Math.PI * 2);
+        ctx.ellipse(5, -3, 4, 6, 0, 0, Math.PI * 2);
         ctx.fill();
+        
+        // 瞳孔
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.ellipse(-5, -3, 2, 4, 0, 0, Math.PI * 2);
+        ctx.ellipse(5, -3, 2, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 嘴巴
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 5, 6, 0.2, Math.PI - 0.2);
+        ctx.stroke();
     }
     
     renderFast(ctx) {
-        // 快速敌人 - 箭头形
+        // 快速敌人 - 闪电幽灵造型
+        const time = Date.now() / 100;
+        
+        // 闪电拖尾
+        ctx.strokeStyle = 'rgba(72, 219, 251, 0.6)';
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#48dbfb';
+        for (let i = 0; i < 3; i++) {
+            const offset = (time + i * 2) % 10;
+            ctx.beginPath();
+            ctx.moveTo(-8 + Math.sin(time + i) * 3, this.size/2 + offset);
+            ctx.lineTo(0, this.size/2 + offset + 8);
+            ctx.lineTo(8 + Math.cos(time + i) * 3, this.size/2 + offset);
+            ctx.stroke();
+        }
+        
+        // 主体 - 流线型
         const gradient = ctx.createLinearGradient(0, -this.size/2, 0, this.size/2);
-        gradient.addColorStop(0, '#85e3ff');
-        gradient.addColorStop(0.5, this.color);
-        gradient.addColorStop(1, this.darkenColor(this.color, 40));
+        gradient.addColorStop(0, '#48dbfb');
+        gradient.addColorStop(0.5, '#0abde3');
+        gradient.addColorStop(1, '#0984e3');
         
         ctx.fillStyle = gradient;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#48dbfb';
         ctx.beginPath();
-        ctx.moveTo(0, this.size/2);
-        ctx.lineTo(this.size/3, -this.size/4);
-        ctx.lineTo(0, -this.size/2);
-        ctx.lineTo(-this.size/3, -this.size/4);
+        // 尖头
+        ctx.moveTo(0, -this.size/2);
+        ctx.quadraticCurveTo(this.size/2, -this.size/4, this.size/3, this.size/3);
+        ctx.lineTo(0, this.size/2);
+        ctx.lineTo(-this.size/3, this.size/3);
+        ctx.quadraticCurveTo(-this.size/2, -this.size/4, 0, -this.size/2);
         ctx.closePath();
         ctx.fill();
         
-        // 尾部拖尾效果
-        ctx.fillStyle = 'rgba(72, 219, 251, 0.5)';
+        // 能量核心
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 15;
         ctx.beginPath();
-        ctx.moveTo(-5, this.size/2);
-        ctx.lineTo(0, this.size/2 + 10);
-        ctx.lineTo(5, this.size/2);
+        ctx.arc(0, 0, 5, 0, Math.PI * 2);
         ctx.fill();
+        
+        // 闪电纹路
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-3, -8);
+        ctx.lineTo(0, 0);
+        ctx.lineTo(3, -8);
+        ctx.stroke();
     }
     
     renderTank(ctx) {
-        // 坦克敌人 - 六边形
-        const gradient = ctx.createLinearGradient(0, -this.size/2, 0, this.size/2);
-        gradient.addColorStop(0, '#b8b3ff');
-        gradient.addColorStop(0.5, this.color);
-        gradient.addColorStop(1, this.darkenColor(this.color, 40));
+        // 坦克敌人 - 重装机械造型
+        const time = Date.now() / 300;
+        
+        // 护盾光环
+        ctx.strokeStyle = `rgba(162, 155, 254, ${0.5 + Math.sin(time) * 0.2})`;
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#a29bfe';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size/2 + 5, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // 主体 - 厚重六边形
+        const gradient = ctx.createLinearGradient(-this.size/2, -this.size/2, this.size/2, this.size/2);
+        gradient.addColorStop(0, '#a29bfe');
+        gradient.addColorStop(0.5, '#6c5ce7');
+        gradient.addColorStop(1, '#5f3dc4');
         
         ctx.fillStyle = gradient;
         ctx.shadowBlur = 15;
-        ctx.shadowColor = this.color;
+        ctx.shadowColor = '#a29bfe';
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
             const angle = (Math.PI / 3) * i;
-            const x = Math.cos(angle) * this.size/2;
-            const y = Math.sin(angle) * this.size/2;
+            const r = this.size/2;
+            const x = Math.cos(angle) * r;
+            const y = Math.sin(angle) * r;
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
         }
         ctx.closePath();
         ctx.fill();
         
-        // 装甲细节
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 2;
+        // 装甲板
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
         ctx.beginPath();
-        ctx.arc(0, 0, this.size/4, 0, Math.PI * 2);
-        ctx.stroke();
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const r = this.size/3;
+            const x = Math.cos(angle) * r;
+            const y = Math.sin(angle) * r;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        
+        // 核心能量
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#fff';
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 装甲铆钉
+        ctx.fillStyle = '#4834d4';
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i + Math.PI / 6;
+            const r = this.size/2.5;
+            ctx.beginPath();
+            ctx.arc(Math.cos(angle) * r, Math.sin(angle) * r, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
     
     renderShooter(ctx) {
-        // 射击敌人 - 圆形带炮管
+        // 射击敌人 - 狙击炮台造型
+        const time = Date.now() / 200;
+        const aimAngle = Math.sin(time) * 0.3;
+        
+        // 瞄准线
+        ctx.strokeStyle = 'rgba(254, 202, 87, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.sin(aimAngle) * 60, Math.cos(aimAngle) * 60);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        // 主体 - 圆形炮台
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size/2);
-        gradient.addColorStop(0, '#ffe285');
-        gradient.addColorStop(0.5, this.color);
-        gradient.addColorStop(1, this.darkenColor(this.color, 40));
+        gradient.addColorStop(0, '#feca57');
+        gradient.addColorStop(0.5, '#f39c12');
+        gradient.addColorStop(1, '#d68910');
         
         ctx.fillStyle = gradient;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#feca57';
         ctx.beginPath();
         ctx.arc(0, 0, this.size/2, 0, Math.PI * 2);
         ctx.fill();
         
-        // 炮管
-        ctx.fillStyle = '#d4a017';
-        ctx.fillRect(-4, 0, 8, this.size/2 + 5);
+        // 旋转炮塔底座
+        ctx.strokeStyle = '#b7791f';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size/3, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // 炮管（可旋转）
+        ctx.save();
+        ctx.rotate(aimAngle);
+        
+        // 炮管主体
+        const barrelGradient = ctx.createLinearGradient(0, 0, 0, this.size/2 + 10);
+        barrelGradient.addColorStop(0, '#f39c12');
+        barrelGradient.addColorStop(1, '#8e44ad');
+        ctx.fillStyle = barrelGradient;
+        ctx.fillRect(-6, 0, 12, this.size/2 + 12);
+        
+        // 炮口发光
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#feca57';
+        ctx.beginPath();
+        ctx.arc(0, this.size/2 + 12, 4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+        
+        // 瞄准镜
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(0, -5, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath();
+        ctx.arc(0, -5, 3, 0, Math.PI * 2);
+        ctx.fill();
         
         // 核心
         ctx.fillStyle = '#fff';
@@ -1411,45 +1580,79 @@ class Boss {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.size = 120;
-        this.radius = 60;
-        this.maxHealth = 2000;
+        this.size = 140;
+        this.radius = 70;
+        this.maxHealth = 5000;  // 大幅增加血量
         this.health = this.maxHealth;
-        this.speed = 1.5;
+        this.speed = 1.2;
         this.active = true;
         this.phase = 1;
         this.lastAttack = 0;
-        this.attackInterval = 2000;
+        this.attackInterval = 2500;
         this.targetX = x;
         this.targetY = y;
         this.name = '元素吞噬者';
+        this.damageMultiplier = 1;
+        this.bulletSpeed = 4;
+        this.attackPatterns = ['spread'];
+        this.rageMode = false;
     }
     
     update(dt, game) {
         const healthPercent = this.health / this.maxHealth;
-        if (healthPercent < 0.6 && this.phase === 1) {
+        
+        // 阶段转换 - 更平滑的难度曲线
+        if (healthPercent < 0.75 && this.phase === 1) {
             this.phase = 2;
-            this.attackInterval = 1500;
+            this.attackInterval = 2000;
+            this.damageMultiplier = 1.3;
+            this.bulletSpeed = 5;
+            this.attackPatterns = ['spread', 'laser'];
             game.screenShake(10);
-        } else if (healthPercent < 0.3 && this.phase === 2) {
+        } else if (healthPercent < 0.5 && this.phase === 2) {
             this.phase = 3;
-            this.attackInterval = 1000;
-            this.speed = 2;
+            this.attackInterval = 1500;
+            this.speed = 1.8;
+            this.damageMultiplier = 1.6;
+            this.bulletSpeed = 6;
+            this.attackPatterns = ['spread', 'laser', 'spiral'];
             game.screenShake(15);
+        } else if (healthPercent < 0.25 && this.phase === 3) {
+            this.phase = 4;  // 新增第4阶段 - 狂暴模式
+            this.rageMode = true;
+            this.attackInterval = 1000;
+            this.speed = 2.5;
+            this.damageMultiplier = 2;
+            this.bulletSpeed = 7;
+            this.attackPatterns = ['spread', 'laser', 'spiral', 'chaos'];
+            game.screenShake(20);
         }
         
+        // BOSS移动 - 更智能的追踪
         this.targetX = game.player.x;
-        this.targetY = Math.min(game.player.y - 200, game.height * 0.3);
+        this.targetY = Math.min(game.player.y - 150, game.height * 0.25);
         
         const dx = this.targetX - this.x;
         const dy = this.targetY - this.y;
-        this.x += dx * this.speed * dt * 0.5;
-        this.y += dy * this.speed * dt * 0.5;
+        this.x += dx * this.speed * dt * 0.8;
+        this.y += dy * this.speed * dt * 0.8;
+        
+        // 狂暴模式下额外移动
+        if (this.rageMode) {
+            this.x += Math.sin(Date.now() / 500) * 2;
+        }
         
         this.lastAttack += dt * 1000;
         if (this.lastAttack > this.attackInterval) {
             this.attack(game);
             this.lastAttack = 0;
+        }
+        
+        // 狂暴模式下额外攻击
+        if (this.rageMode && this.lastAttack > this.attackInterval * 0.5) {
+            if (Math.random() < 0.3) {
+                this.quickShot(game);
+            }
         }
         
         if (this.health <= 0) {
@@ -1458,70 +1661,113 @@ class Boss {
     }
     
     attack(game) {
-        switch(this.phase) {
-            case 1: this.spreadShot(game); break;
-            case 2:
-                if (Math.random() < 0.5) this.spreadShot(game);
-                else this.laserShot(game);
-                break;
-            case 3: this.spiralShot(game); break;
+        const pattern = this.attackPatterns[Math.floor(Math.random() * this.attackPatterns.length)];
+        switch(pattern) {
+            case 'spread': this.spreadShot(game); break;
+            case 'laser': this.laserShot(game); break;
+            case 'spiral': this.spiralShot(game); break;
+            case 'chaos': this.chaosShot(game); break;
         }
     }
     
     spreadShot(game) {
-        const bulletCount = 8 + this.phase * 4;
-        for (let i = 0; i < bulletCount; i++) {
-            const angle = (Math.PI * 2 / bulletCount) * i + Math.random() * 0.5;
-            const bullet = new Bullet(
-                this.x, this.y + this.size / 2,
-                Math.cos(angle) * 4, Math.sin(angle) * 4,
-                15, '#ff6b6b', 'boss'
-            );
-            bullet.fromEnemy = true;
-            bullet.radius = 8;
-            game.bullets.push(bullet);
+        const bulletCount = 10 + this.phase * 3;
+        const waves = this.rageMode ? 2 : 1;
+        
+        for (let w = 0; w < waves; w++) {
+            setTimeout(() => {
+                for (let i = 0; i < bulletCount; i++) {
+                    const angle = (Math.PI * 2 / bulletCount) * i + (w * Math.PI / bulletCount);
+                    const bullet = new Bullet(
+                        this.x, this.y + this.size / 2,
+                        Math.cos(angle) * this.bulletSpeed, Math.sin(angle) * this.bulletSpeed,
+                        15 * this.damageMultiplier, '#ff6b6b', 'boss'
+                    );
+                    bullet.fromEnemy = true;
+                    bullet.radius = 8 + this.phase;
+                    game.bullets.push(bullet);
+                }
+                game.screenShake(5);
+            }, w * 300);
         }
-        game.screenShake(5);
     }
     
     laserShot(game) {
         const angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
-        for (let i = 0; i < 5; i++) {
-            const bullet = new Bullet(
-                this.x, this.y + this.size / 2,
-                Math.cos(angle) * (6 + i), Math.sin(angle) * (6 + i),
-                20, '#feca57', 'boss'
-            );
-            bullet.fromEnemy = true;
-            bullet.radius = 10;
-            game.bullets.push(bullet);
+        const bulletCount = 5 + this.phase * 2;
+        
+        for (let i = 0; i < bulletCount; i++) {
+            setTimeout(() => {
+                const bullet = new Bullet(
+                    this.x, this.y + this.size / 2,
+                    Math.cos(angle) * (this.bulletSpeed + i * 0.5), Math.sin(angle) * (this.bulletSpeed + i * 0.5),
+                    20 * this.damageMultiplier, '#feca57', 'boss'
+                );
+                bullet.fromEnemy = true;
+                bullet.radius = 10 + this.phase;
+                game.bullets.push(bullet);
+            }, i * 100);
         }
+        game.screenShake(3);
     }
     
     spiralShot(game) {
         const time = Date.now() / 1000;
-        for (let i = 0; i < 12; i++) {
-            const angle = (Math.PI * 2 / 12) * i + time;
+        const bulletCount = 12 + this.phase * 3;
+        
+        for (let i = 0; i < bulletCount; i++) {
+            const angle = (Math.PI * 2 / bulletCount) * i + time;
             const bullet = new Bullet(
                 this.x, this.y,
-                Math.cos(angle) * 5, Math.sin(angle) * 5,
-                12, '#a29bfe', 'boss'
+                Math.cos(angle) * this.bulletSpeed, Math.sin(angle) * this.bulletSpeed,
+                12 * this.damageMultiplier, '#a29bfe', 'boss'
             );
             bullet.fromEnemy = true;
-            bullet.radius = 6;
+            bullet.radius = 6 + this.phase;
             game.bullets.push(bullet);
         }
         
+        // 追踪弹
+        const angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+        const trackingBullet = new Bullet(
+            this.x, this.y,
+            Math.cos(angle) * (this.bulletSpeed + 2), Math.sin(angle) * (this.bulletSpeed + 2),
+            25 * this.damageMultiplier, '#ff6b6b', 'boss'
+        );
+        trackingBullet.fromEnemy = true;
+        trackingBullet.radius = 12 + this.phase;
+        game.bullets.push(trackingBullet);
+        game.screenShake(8);
+    }
+    
+    chaosShot(game) {
+        // 狂暴模式专属 - 随机弹幕
+        for (let i = 0; i < 20; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = this.bulletSpeed + Math.random() * 3;
+            const bullet = new Bullet(
+                this.x, this.y,
+                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                18 * this.damageMultiplier, '#e74c3c', 'boss'
+            );
+            bullet.fromEnemy = true;
+            bullet.radius = 6 + Math.random() * 6;
+            game.bullets.push(bullet);
+        }
+        game.screenShake(10);
+    }
+    
+    quickShot(game) {
+        // 快速射击
         const angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
         const bullet = new Bullet(
             this.x, this.y,
-            Math.cos(angle) * 7, Math.sin(angle) * 7,
-            25, '#ff6b6b', 'boss'
+            Math.cos(angle) * 8, Math.sin(angle) * 8,
+            15 * this.damageMultiplier, '#fff', 'boss'
         );
         bullet.fromEnemy = true;
-        bullet.radius = 12;
+        bullet.radius = 5;
         game.bullets.push(bullet);
-        game.screenShake(8);
     }
     
     takeDamage(damage, game) {
