@@ -86,14 +86,32 @@ class Game {
         this.canvas.addEventListener('mousemove', (e) => {
             this.mouse.x = e.clientX;
             this.mouse.y = e.clientY;
+            // 鼠标移动时自动激活控制
+            this.mouse.active = true;
         });
         
-        this.canvas.addEventListener('mousedown', () => {
+        this.canvas.addEventListener('mousedown', (e) => {
             this.mouse.down = true;
+            this.mouse.active = true;
+            // 鼠标左键 = J技能 (索引0)
+            if (e.button === 0 && this.state === GameState.PLAYING && this.player) {
+                e.preventDefault();
+                this.player.activateSkill(0);
+            }
+            // 鼠标右键 = K技能 (索引1)
+            if (e.button === 2 && this.state === GameState.PLAYING && this.player) {
+                e.preventDefault();
+                this.player.activateSkill(1);
+            }
         });
         
         this.canvas.addEventListener('mouseup', () => {
             this.mouse.down = false;
+        });
+        
+        // 禁用右键菜单，用于K技能
+        this.canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
         });
         
         this.canvas.addEventListener('touchstart', (e) => {
@@ -581,14 +599,22 @@ class Player {
         let dx = 0, dy = 0;
         let usingTouchOrMouse = false;
         
-        // 键盘控制
-        if (game.keys['w'] || game.keys['arrowup']) dy -= 1;
-        if (game.keys['s'] || game.keys['arrowdown']) dy += 1;
-        if (game.keys['a'] || game.keys['arrowleft']) dx -= 1;
-        if (game.keys['d'] || game.keys['arrowright']) dx += 1;
+        // 键盘控制 - 优先使用键盘
+        const keyUp = game.keys['w'] || game.keys['arrowup'];
+        const keyDown = game.keys['s'] || game.keys['arrowdown'];
+        const keyLeft = game.keys['a'] || game.keys['arrowleft'];
+        const keyRight = game.keys['d'] || game.keys['arrowright'];
         
-        // 触摸控制 - 手指位置相对于玩家位置决定移动方向
-        if (game.touch.active && !usingTouchOrMouse) {
+        if (keyUp) dy -= 1;
+        if (keyDown) dy += 1;
+        if (keyLeft) dx -= 1;
+        if (keyRight) dx += 1;
+        
+        // 如果有键盘输入，禁用鼠标/触摸控制
+        const usingKeyboard = dx !== 0 || dy !== 0;
+        
+        // 触摸控制 - 仅在未使用键盘时
+        if (!usingKeyboard && game.touch.active && !usingTouchOrMouse) {
             const targetX = game.touch.x;
             const targetY = game.touch.y;
             const diffX = targetX - this.x;
@@ -602,8 +628,8 @@ class Player {
             }
         }
         
-        // 鼠标控制 - 鼠标移动即可控制，无需按住
-        if (game.mouse.active && !usingTouchOrMouse) {
+        // 鼠标控制 - 仅在未使用键盘时
+        if (!usingKeyboard && game.mouse.active && !usingTouchOrMouse) {
             const targetX = game.mouse.x;
             const targetY = game.mouse.y;
             const diffX = targetX - this.x;
