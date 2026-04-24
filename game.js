@@ -363,6 +363,9 @@ class Game {
         const modal = document.getElementById('levelUpModal');
         if (modal) {
             modal.classList.add('active');
+            // 重置选择为选项A
+            levelUpSelection = 0;
+            updateLevelUpSelection();
         }
     }
     
@@ -1305,6 +1308,158 @@ class Bullet {
     }
 }
 
+// ==================== 加速子弹类 ====================
+class AcceleratingBullet extends Bullet {
+    constructor(x, y, vx, vy, damage, color, type, initialSpeed) {
+        super(x, y, vx * initialSpeed, vy * initialSpeed, damage, color, type);
+        this.directionX = vx;
+        this.directionY = vy;
+        this.currentSpeed = initialSpeed;
+        this.maxSpeed = initialSpeed * 3;
+        this.acceleration = initialSpeed * 0.02;
+        this.fromEnemy = true;
+    }
+    
+    update(dt) {
+        // 逐渐加速
+        if (this.currentSpeed < this.maxSpeed) {
+            this.currentSpeed += this.acceleration;
+        }
+        
+        this.vx = this.directionX * this.currentSpeed;
+        this.vy = this.directionY * this.currentSpeed;
+        
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        // 加速时产生粒子效果
+        if (Math.random() < 0.5 && window.game) {
+            window.game.particles.push(new Particle(this.x, this.y, this.color, 1.5, 0.3));
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        // 根据速度改变大小和颜色强度
+        const speedRatio = this.currentSpeed / this.maxSpeed;
+        const size = this.radius * (1 + speedRatio);
+        
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 15 + speedRatio * 10;
+        ctx.shadowColor = this.color;
+        
+        // 绘制拖尾效果
+        const gradient = ctx.createLinearGradient(
+            this.x - this.vx * 3, this.y - this.vy * 3,
+            this.x, this.y
+        );
+        gradient.addColorStop(0, 'transparent');
+        gradient.addColorStop(1, this.color);
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(this.x - this.vx * 3, this.y - this.vy * 3);
+        ctx.lineTo(this.x + size, this.y);
+        ctx.lineTo(this.x, this.y + size);
+        ctx.lineTo(this.x - size, this.y);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 核心
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
+// ==================== 追踪子弹类 ====================
+class HomingBullet extends Bullet {
+    constructor(x, y, vx, vy, damage, color, type, target) {
+        super(x, y, vx, vy, damage, color, type);
+        this.target = target;
+        this.homingStrength = 0.08;
+        this.maxSpeed = Math.sqrt(vx * vx + vy * vy) * 1.5;
+        this.fromEnemy = true;
+        this.lifeTime = 0;
+        this.maxLifeTime = 5; // 5秒后自动销毁
+    }
+    
+    update(dt) {
+        this.lifeTime += dt;
+        
+        if (this.lifeTime > this.maxLifeTime) {
+            this.active = false;
+            return;
+        }
+        
+        // 追踪目标
+        if (this.target && this.target.active !== false) {
+            const dx = this.target.x - this.x;
+            const dy = this.target.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist > 0) {
+                // 计算朝向目标的方向
+                const targetVx = (dx / dist) * this.maxSpeed;
+                const targetVy = (dy / dist) * this.maxSpeed;
+                
+                // 平滑转向
+                this.vx += (targetVx - this.vx) * this.homingStrength;
+                this.vy += (targetVy - this.vy) * this.homingStrength;
+                
+                // 限制最大速度
+                const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (currentSpeed > this.maxSpeed) {
+                    this.vx = (this.vx / currentSpeed) * this.maxSpeed;
+                    this.vy = (this.vy / currentSpeed) * this.maxSpeed;
+                }
+            }
+        }
+        
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        // 追踪时产生粒子效果
+        if (Math.random() < 0.4 && window.game) {
+            window.game.particles.push(new Particle(this.x, this.y, '#ff9ff3', 1, 0.2));
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        
+        // 计算旋转角度
+        const angle = Math.atan2(this.vy, this.vx);
+        ctx.translate(this.x, this.y);
+        ctx.rotate(angle);
+        
+        // 追踪弹特效 - 菱形
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#ff9ff3';
+        
+        ctx.beginPath();
+        ctx.moveTo(15, 0);
+        ctx.lineTo(0, -8);
+        ctx.lineTo(-10, 0);
+        ctx.lineTo(0, 8);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 核心发光
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
 // ==================== 敌人类 ====================
 class Enemy {
     constructor(x, y, type, level) {
@@ -1374,12 +1529,12 @@ class Enemy {
             this.y += (dy / dist) * this.speed * this.speedMultiplier;
         }
         
-        if (this.type === 'shooter') {
-            this.lastShot += dt * 1000;
-            if (this.lastShot > 2000) {
-                this.shoot(game);
-                this.lastShot = 0;
-            }
+        // 所有敌人都会发射子弹，不同类型不同射击模式
+        this.lastShot = (this.lastShot || 0) + dt * 1000;
+        const shotInterval = this.getShotInterval();
+        if (this.lastShot > shotInterval) {
+            this.shoot(game);
+            this.lastShot = 0;
         }
         
         if (this.health <= 0) {
@@ -1387,14 +1542,63 @@ class Enemy {
         }
     }
     
+    getShotInterval() {
+        // 根据敌人类型返回不同的射击间隔
+        switch(this.type) {
+            case 'basic': return 3000;      // 基础敌人3秒一发
+            case 'fast': return 2500;       // 快速敌人2.5秒一发
+            case 'tank': return 4000;       // 坦克敌人4秒一发
+            case 'shooter': return 1500;    // 射击敌人1.5秒一发
+            default: return 3000;
+        }
+    }
+    
     shoot(game) {
         const angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+        
+        switch(this.type) {
+            case 'basic':
+                // 基础敌人 - 单发慢速弹
+                this.createEnemyBullet(game, angle, 3, this.damage, 5);
+                break;
+            case 'fast':
+                // 快速敌人 - 双发快速弹（快慢组合）
+                this.createEnemyBullet(game, angle, 6, this.damage * 0.7, 4);
+                setTimeout(() => {
+                    if (this.active) {
+                        this.createEnemyBullet(game, angle, 3, this.damage, 6);
+                    }
+                }, 200);
+                break;
+            case 'tank':
+                // 坦克敌人 - 散射3发
+                for (let i = -1; i <= 1; i++) {
+                    const offsetAngle = angle + i * 0.3;
+                    this.createEnemyBullet(game, offsetAngle, 2.5, this.damage * 1.2, 7);
+                }
+                break;
+            case 'shooter':
+                // 射击敌人 - 快速连射
+                for (let i = 0; i < 3; i++) {
+                    setTimeout(() => {
+                        if (this.active) {
+                            const spreadAngle = angle + (Math.random() - 0.5) * 0.2;
+                            this.createEnemyBullet(game, spreadAngle, 5, this.damage * 0.8, 4);
+                        }
+                    }, i * 150);
+                }
+                break;
+        }
+    }
+    
+    createEnemyBullet(game, angle, speed, damage, radius) {
         const bullet = new Bullet(
             this.x, this.y,
-            Math.cos(angle) * 5, Math.sin(angle) * 5,
-            this.damage, this.color, this.type
+            Math.cos(angle) * speed, Math.sin(angle) * speed,
+            damage, this.color, this.type
         );
         bullet.fromEnemy = true;
+        bullet.radius = radius;
         game.bullets.push(bullet);
     }
     
@@ -1768,7 +1972,9 @@ class Boss {
         this.name = isMiniBoss ? '精英守卫' : '元素吞噬者';
         this.damageMultiplier = isMiniBoss ? 0.8 : 1;
         this.bulletSpeed = isMiniBoss ? 5 : 4;
-        this.attackPatterns = isMiniBoss ? ['spread', 'laser'] : ['spread'];
+        this.attackPatterns = isMiniBoss ? 
+            ['spread', 'laser', 'fan', 'ring'] : 
+            ['spread', 'laser', 'spiral', 'fan', 'ring', 'burst', 'cross', 'accelerate', 'homing'];
         this.rageMode = false;
     }
     
@@ -1841,6 +2047,12 @@ class Boss {
             case 'laser': this.laserShot(game); break;
             case 'spiral': this.spiralShot(game); break;
             case 'chaos': this.chaosShot(game); break;
+            case 'fan': this.fanShot(game); break;
+            case 'ring': this.ringShot(game); break;
+            case 'burst': this.burstShot(game); break;
+            case 'cross': this.crossShot(game); break;
+            case 'accelerate': this.accelerateShot(game); break;
+            case 'homing': this.homingShot(game); break;
         }
     }
     
@@ -1942,6 +2154,208 @@ class Boss {
         bullet.fromEnemy = true;
         bullet.radius = 5;
         game.bullets.push(bullet);
+    }
+    
+    // 1. 扇形散弹 - 大范围扇形弹幕
+    fanShot(game) {
+        const bulletCount = 15 + this.phase * 3;
+        const fanAngle = Math.PI / 2; // 90度扇形
+        const startAngle = -Math.PI / 2 - fanAngle / 2; // 指向上方
+        
+        for (let i = 0; i < bulletCount; i++) {
+            const angle = startAngle + (fanAngle / (bulletCount - 1)) * i;
+            const speed = this.bulletSpeed * (0.8 + Math.random() * 0.4);
+            const bullet = new Bullet(
+                this.x, this.y + this.size / 2,
+                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                12 * this.damageMultiplier, '#ff6b6b', 'boss'
+            );
+            bullet.fromEnemy = true;
+            bullet.radius = 6 + this.phase;
+            game.bullets.push(bullet);
+        }
+        
+        // 快慢弹组合 - 第二波慢速弹
+        setTimeout(() => {
+            for (let i = 0; i < bulletCount / 2; i++) {
+                const angle = startAngle + (fanAngle / (bulletCount / 2 - 1)) * i;
+                const bullet = new Bullet(
+                    this.x, this.y + this.size / 2,
+                    Math.cos(angle) * this.bulletSpeed * 0.5, Math.sin(angle) * this.bulletSpeed * 0.5,
+                    18 * this.damageMultiplier, '#ff4757', 'boss'
+                );
+                bullet.fromEnemy = true;
+                bullet.radius = 8 + this.phase;
+                game.bullets.push(bullet);
+            }
+        }, 400);
+        
+        game.screenShake(6);
+    }
+    
+    // 2. 环形弹幕 - 多层环形扩散
+    ringShot(game) {
+        const ringCount = 2 + Math.floor(this.phase / 2);
+        
+        for (let r = 0; r < ringCount; r++) {
+            setTimeout(() => {
+                const bulletCount = 16 + this.phase * 2;
+                const offsetAngle = r * Math.PI / bulletCount;
+                
+                for (let i = 0; i < bulletCount; i++) {
+                    const angle = (Math.PI * 2 / bulletCount) * i + offsetAngle;
+                    const speed = this.bulletSpeed * (0.6 + r * 0.3);
+                    const bullet = new Bullet(
+                        this.x, this.y,
+                        Math.cos(angle) * speed, Math.sin(angle) * speed,
+                        14 * this.damageMultiplier, '#a29bfe', 'boss'
+                    );
+                    bullet.fromEnemy = true;
+                    bullet.radius = 7 + this.phase;
+                    game.bullets.push(bullet);
+                }
+            }, r * 300);
+        }
+        
+        game.screenShake(5);
+    }
+    
+    // 3. 定向连射 - 快速连续射击
+    burstShot(game) {
+        const burstCount = 5 + this.phase * 2;
+        let baseAngle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+        
+        for (let i = 0; i < burstCount; i++) {
+            setTimeout(() => {
+                // 轻微散射
+                const angle = baseAngle + (Math.random() - 0.5) * 0.2;
+                const speed = this.bulletSpeed * (1.2 + i * 0.1);
+                const bullet = new Bullet(
+                    this.x, this.y + this.size / 2,
+                    Math.cos(angle) * speed, Math.sin(angle) * speed,
+                    16 * this.damageMultiplier, '#feca57', 'boss'
+                );
+                bullet.fromEnemy = true;
+                bullet.radius = 6 + this.phase;
+                game.bullets.push(bullet);
+                
+                // 每3发加一发慢速大弹
+                if (i % 3 === 0) {
+                    const slowBullet = new Bullet(
+                        this.x, this.y + this.size / 2,
+                        Math.cos(angle) * this.bulletSpeed * 0.4, Math.sin(angle) * this.bulletSpeed * 0.4,
+                        25 * this.damageMultiplier, '#d68910', 'boss'
+                    );
+                    slowBullet.fromEnemy = true;
+                    slowBullet.radius = 12 + this.phase;
+                    game.bullets.push(slowBullet);
+                }
+            }, i * 80);
+        }
+        
+        game.screenShake(4);
+    }
+    
+    // 4. 交叉封锁 - 交叉弹幕封锁移动
+    crossShot(game) {
+        const armCount = 4 + this.phase;
+        
+        for (let arm = 0; arm < armCount; arm++) {
+            const baseAngle = (Math.PI * 2 / armCount) * arm;
+            
+            // 每条臂发射3发子弹，不同速度形成交叉
+            for (let i = 0; i < 3; i++) {
+                const speed = this.bulletSpeed * (0.5 + i * 0.4);
+                const bullet = new Bullet(
+                    this.x, this.y,
+                    Math.cos(baseAngle) * speed, Math.sin(baseAngle) * speed,
+                    15 * this.damageMultiplier, '#00d2d3', 'boss'
+                );
+                bullet.fromEnemy = true;
+                bullet.radius = 7 + this.phase;
+                game.bullets.push(bullet);
+            }
+        }
+        
+        // 补充对角线封锁
+        setTimeout(() => {
+            for (let arm = 0; arm < armCount; arm++) {
+                const baseAngle = (Math.PI * 2 / armCount) * arm + Math.PI / armCount;
+                const bullet = new Bullet(
+                    this.x, this.y,
+                    Math.cos(baseAngle) * this.bulletSpeed * 0.7, Math.sin(baseAngle) * this.bulletSpeed * 0.7,
+                    20 * this.damageMultiplier, '#54a0ff', 'boss'
+                );
+                bullet.fromEnemy = true;
+                bullet.radius = 9 + this.phase;
+                game.bullets.push(bullet);
+            }
+        }, 350);
+        
+        game.screenShake(6);
+    }
+    
+    // 5. 渐变加速弹 - 速度逐渐加快的子弹
+    accelerateShot(game) {
+        const waveCount = 3 + this.phase;
+        const bulletsPerWave = 6;
+        
+        for (let w = 0; w < waveCount; w++) {
+            setTimeout(() => {
+                const baseAngle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+                
+                for (let i = 0; i < bulletsPerWave; i++) {
+                    const angle = baseAngle + (i - bulletsPerWave / 2) * 0.15;
+                    const bullet = new AcceleratingBullet(
+                        this.x, this.y + this.size / 2,
+                        Math.cos(angle), Math.sin(angle),
+                        12 * this.damageMultiplier, '#5f27cd', 'boss',
+                        this.bulletSpeed * (0.3 + w * 0.2)
+                    );
+                    bullet.fromEnemy = true;
+                    bullet.radius = 6 + this.phase;
+                    game.bullets.push(bullet);
+                }
+            }, w * 400);
+        }
+        
+        game.screenShake(5);
+    }
+    
+    // 6. 追踪弹 - 追踪玩家的子弹
+    homingShot(game) {
+        const homingCount = 3 + this.phase;
+        
+        for (let i = 0; i < homingCount; i++) {
+            setTimeout(() => {
+                const bullet = new HomingBullet(
+                    this.x, this.y + this.size / 2,
+                    0, this.bulletSpeed * 0.6,
+                    20 * this.damageMultiplier, '#ff9ff3', 'boss',
+                    game.player
+                );
+                bullet.fromEnemy = true;
+                bullet.radius = 10 + this.phase;
+                game.bullets.push(bullet);
+            }, i * 250);
+        }
+        
+        // 配合普通弹幕增加压力
+        setTimeout(() => {
+            for (let i = 0; i < 8; i++) {
+                const angle = (Math.PI * 2 / 8) * i;
+                const bullet = new Bullet(
+                    this.x, this.y,
+                    Math.cos(angle) * this.bulletSpeed, Math.sin(angle) * this.bulletSpeed,
+                    10 * this.damageMultiplier, '#f368e0', 'boss'
+                );
+                bullet.fromEnemy = true;
+                bullet.radius = 5;
+                game.bullets.push(bullet);
+            }
+        }, 300);
+        
+        game.screenShake(7);
     }
     
     takeDamage(damage, game) {
@@ -3126,7 +3540,36 @@ document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('gesturechange', (e) => e.preventDefault());
 document.addEventListener('gestureend', (e) => e.preventDefault());
 
+// 等级提升弹窗键盘控制
+let levelUpSelection = 0; // 0 = 选项A, 1 = 选项B
+
 document.addEventListener('keydown', (e) => {
+    // 等级提升弹窗的键盘控制
+    const levelUpModal = document.getElementById('levelUpModal');
+    if (levelUpModal && levelUpModal.classList.contains('active')) {
+        const key = e.key.toLowerCase();
+        
+        // A/左箭头 - 选择选项A
+        if (key === 'a' || key === 'arrowleft') {
+            levelUpSelection = 0;
+            updateLevelUpSelection();
+            e.preventDefault();
+        }
+        // D/右箭头 - 选择选项B
+        else if (key === 'd' || key === 'arrowright') {
+            levelUpSelection = 1;
+            updateLevelUpSelection();
+            e.preventDefault();
+        }
+        // Enter/空格 - 确认选择
+        else if (key === 'enter' || key === ' ') {
+            const option = levelUpSelection === 0 ? 'multishot' : 'width';
+            if (game) game.selectLevelUpOption(option);
+            e.preventDefault();
+        }
+        return;
+    }
+    
     if (!game || game.state !== GameState.PLAYING) return;
     
     if (e.key.toLowerCase() === 'j') {
@@ -3136,6 +3579,21 @@ document.addEventListener('keydown', (e) => {
         game.player.activateSkill(1);
     }
 });
+
+function updateLevelUpSelection() {
+    const optionA = document.getElementById('levelUpOptionA');
+    const optionB = document.getElementById('levelUpOptionB');
+    
+    if (optionA && optionB) {
+        if (levelUpSelection === 0) {
+            optionA.classList.add('selected');
+            optionB.classList.remove('selected');
+        } else {
+            optionA.classList.remove('selected');
+            optionB.classList.add('selected');
+        }
+    }
+}
 
 window.showMainMenu = showMainMenu;
 window.showTalentSelect = showTalentSelect;

@@ -755,6 +755,41 @@
             font-size: 14px;
             line-height: 1.5;
         }
+
+        .levelup-option.selected {
+            border-color: #feca57;
+            box-shadow: 0 0 20px rgba(254, 202, 87, 0.5);
+            transform: scale(1.05);
+        }
+
+        .option-key {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #888;
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .levelup-option.selected .option-key {
+            background: rgba(254, 202, 87, 0.3);
+            color: #feca57;
+            border-color: #feca57;
+        }
+
+        .levelup-confirm-hint {
+            margin-top: 20px;
+            color: #888;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .levelup-option {
+            position: relative;
+        }
     </style>
 </head>
 <body>
@@ -912,19 +947,22 @@
         <div class="levelup-modal" id="levelUpModal">
             <div class="levelup-content">
                 <h2 class="levelup-title">🎉 等级提升！</h2>
-                <p class="levelup-subtitle">选择一项强化</p>
+                <p class="levelup-subtitle">选择一项强化 (A/D或←/→选择，Enter/空格确认)</p>
                 <div class="levelup-options">
-                    <div class="levelup-option" onclick="selectLevelUpOption('multishot')">
+                    <div class="levelup-option" id="levelUpOptionA" onclick="selectLevelUpOption('multishot')">
                         <div class="option-icon">🔫</div>
                         <h3>增加弹道</h3>
                         <p>额外发射1发子弹<br>无上限</p>
+                        <div class="option-key">A / ←</div>
                     </div>
-                    <div class="levelup-option" onclick="selectLevelUpOption('width')">
+                    <div class="levelup-option" id="levelUpOptionB" onclick="selectLevelUpOption('width')">
                         <div class="option-icon">💥</div>
                         <h3>子弹强化</h3>
                         <p>子弹大小+30%<br>更容易命中</p>
+                        <div class="option-key">D / →</div>
                     </div>
                 </div>
+                <div class="levelup-confirm-hint">按 Enter 或 空格键 确认</div>
             </div>
         </div>
 
