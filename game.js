@@ -540,6 +540,26 @@ class Game {
         
         this.bullets.forEach(bullet => {
             if (!bullet.active || !bullet.fromEnemy) return;
+            
+            // 检查是否击中玩家分身（风技能）
+            if (this.player && this.player.skillEffects.windDance && this.player.clones.length > 0) {
+                let hitClone = false;
+                this.player.clones.forEach((clone, index) => {
+                    if (hitClone) return;
+                    const dx = bullet.x - clone.x;
+                    const dy = bullet.y - clone.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 25) { // 分身碰撞半径
+                        hitClone = true;
+                        bullet.active = false;
+                        this.createParticles(clone.x, clone.y, '#48dbfb', 8);
+                        // 分身承受伤害，主角不受伤害
+                        this.screenShake(2);
+                    }
+                });
+                if (hitClone) return; // 如果击中分身，不再检查主角
+            }
+            
             if (this.player && this.checkCollision(bullet, this.player)) {
                 this.player.takeDamage(bullet.damage);
                 bullet.active = false;
@@ -549,6 +569,25 @@ class Game {
         
         this.enemies.forEach(enemy => {
             if (!enemy.active) return;
+            
+            // 检查敌人是否撞上分身
+            if (this.player && this.player.skillEffects.windDance && this.player.clones.length > 0) {
+                let hitClone = false;
+                this.player.clones.forEach(clone => {
+                    if (hitClone) return;
+                    const dx = enemy.x - clone.x;
+                    const dy = enemy.y - clone.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < enemy.radius + 25) {
+                        hitClone = true;
+                        enemy.takeDamage(enemy.health, this); // 敌人撞分身直接死
+                        this.createParticles(clone.x, clone.y, '#48dbfb', 10);
+                        this.screenShake(3);
+                    }
+                });
+                if (hitClone) return;
+            }
+            
             if (this.player && this.checkCollision(enemy, this.player)) {
                 this.player.takeDamage(enemy.damage);
                 enemy.takeDamage(enemy.health, this);
@@ -557,6 +596,21 @@ class Game {
         });
         
         if (this.boss && this.boss.active && this.player) {
+            // BOSS子弹检查分身
+            if (this.player.skillEffects.windDance && this.player.clones.length > 0) {
+                // BOSS撞分身，分身消失但BOSS也受伤
+                this.player.clones.forEach(clone => {
+                    const dx = this.boss.x - clone.x;
+                    const dy = this.boss.y - clone.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < this.boss.radius + 25) {
+                        this.boss.takeDamage(50, this);
+                        this.createParticles(clone.x, clone.y, '#48dbfb', 15);
+                        this.screenShake(5);
+                    }
+                });
+            }
+            
             if (this.checkCollision(this.boss, this.player)) {
                 this.player.takeDamage(20);
                 this.screenShake(8);
@@ -1548,12 +1602,14 @@ class Enemy {
             this.y += (dy / dist) * this.speed * this.speedMultiplier;
         }
         
-        // 所有敌人都会发射子弹，不同类型不同射击模式
-        this.lastShot = (this.lastShot || 0) + dt * 1000;
-        const shotInterval = this.getShotInterval();
-        if (this.lastShot > shotInterval) {
-            this.shoot(game);
-            this.lastShot = 0;
+        // 所有敌人都会发射子弹，从2级开始
+        if (this.level >= 2) {
+            this.lastShot = (this.lastShot || 0) + dt * 1000;
+            const shotInterval = this.getShotInterval();
+            if (this.lastShot > shotInterval) {
+                this.shoot(game);
+                this.lastShot = 0;
+            }
         }
         
         if (this.health <= 0) {
@@ -1562,49 +1618,69 @@ class Enemy {
     }
     
     getShotInterval() {
-        // 根据敌人类型返回不同的射击间隔
+        // 根据敌人类型返回不同的射击间隔，随等级提高而加快
+        const levelBonus = Math.max(0, (this.level - 2) * 200); // 每升1级加快200ms
+        
         switch(this.type) {
-            case 'basic': return 3000;      // 基础敌人3秒一发
-            case 'fast': return 2500;       // 快速敌人2.5秒一发
-            case 'tank': return 4000;       // 坦克敌人4秒一发
-            case 'shooter': return 1500;    // 射击敌人1.5秒一发
-            default: return 3000;
+            case 'basic': return Math.max(1500, 2500 - levelBonus);      // 基础敌人2.5秒一发，最低1.5秒
+            case 'fast': return Math.max(1200, 2000 - levelBonus);       // 快速敌人2秒一发，最低1.2秒
+            case 'tank': return Math.max(2500, 3500 - levelBonus);       // 坦克敌人3.5秒一发，最低2.5秒
+            case 'shooter': return Math.max(800, 1200 - levelBonus);     // 射击敌人1.2秒一发，最低0.8秒
+            default: return 2500;
         }
     }
     
     shoot(game) {
         const angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
         
+        // 敌人子弹伤害系数（比BOSS低很多，让玩家有耐久体验）
+        const damageScale = 0.3; // 只有30%的面板伤害
+        
         switch(this.type) {
             case 'basic':
-                // 基础敌人 - 单发慢速弹
-                this.createEnemyBullet(game, angle, 3, this.damage, 5);
+                // 基础敌人 - 2连发（随等级增加）
+                const basicCount = Math.min(3, 1 + Math.floor(this.level / 5));
+                for (let i = 0; i < basicCount; i++) {
+                    setTimeout(() => {
+                        if (this.active) {
+                            const spreadAngle = angle + (Math.random() - 0.5) * 0.1;
+                            this.createEnemyBullet(game, spreadAngle, 3, this.damage * damageScale, 4);
+                        }
+                    }, i * 150);
+                }
                 break;
             case 'fast':
-                // 快速敌人 - 双发快速弹（快慢组合）
-                this.createEnemyBullet(game, angle, 6, this.damage * 0.7, 4);
-                setTimeout(() => {
-                    if (this.active) {
-                        this.createEnemyBullet(game, angle, 3, this.damage, 6);
-                    }
-                }, 200);
+                // 快速敌人 - 3连发快速弹
+                const fastCount = Math.min(4, 2 + Math.floor(this.level / 4));
+                for (let i = 0; i < fastCount; i++) {
+                    setTimeout(() => {
+                        if (this.active) {
+                            const spreadAngle = angle + (Math.random() - 0.5) * 0.15;
+                            const speed = 5 + Math.random() * 2;
+                            this.createEnemyBullet(game, spreadAngle, speed, this.damage * damageScale * 0.8, 3);
+                        }
+                    }, i * 100);
+                }
                 break;
             case 'tank':
-                // 坦克敌人 - 散射3发
-                for (let i = -1; i <= 1; i++) {
-                    const offsetAngle = angle + i * 0.3;
-                    this.createEnemyBullet(game, offsetAngle, 2.5, this.damage * 1.2, 7);
+                // 坦克敌人 - 扇形散射5发
+                const tankCount = Math.min(7, 3 + Math.floor(this.level / 3));
+                const spreadAngle = Math.PI / 4; // 45度扇形
+                for (let i = 0; i < tankCount; i++) {
+                    const bulletAngle = angle - spreadAngle / 2 + (spreadAngle / (tankCount - 1)) * i;
+                    this.createEnemyBullet(game, bulletAngle, 2.5, this.damage * damageScale * 1.2, 6);
                 }
                 break;
             case 'shooter':
-                // 射击敌人 - 快速连射
-                for (let i = 0; i < 3; i++) {
+                // 射击敌人 - 5连射
+                const shooterCount = Math.min(6, 3 + Math.floor(this.level / 3));
+                for (let i = 0; i < shooterCount; i++) {
                     setTimeout(() => {
                         if (this.active) {
-                            const spreadAngle = angle + (Math.random() - 0.5) * 0.2;
-                            this.createEnemyBullet(game, spreadAngle, 5, this.damage * 0.8, 4);
+                            const spreadAngle = angle + (Math.random() - 0.5) * 0.25;
+                            this.createEnemyBullet(game, spreadAngle, 5, this.damage * damageScale, 4);
                         }
-                    }, i * 150);
+                    }, i * 80);
                 }
                 break;
         }
