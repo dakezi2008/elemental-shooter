@@ -552,6 +552,117 @@
             0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
             50% { opacity: 0.7; transform: translateX(-50%) scale(1.1); }
         }
+
+        /* 游戏说明弹窗 */
+        .instructions-modal {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 2000;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .instructions-modal.active {
+            display: block;
+        }
+
+        .instructions-content {
+            max-width: 500px;
+            margin: 0 auto;
+            color: white;
+            padding-bottom: 40px;
+        }
+
+        .instructions-title {
+            font-size: 32px;
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .instructions-section {
+            margin-bottom: 25px;
+        }
+
+        .instructions-section h3 {
+            color: #feca57;
+            font-size: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #feca57;
+            padding-left: 10px;
+        }
+
+        .instructions-section ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .instructions-section li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            line-height: 1.6;
+        }
+
+        .instructions-section li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .talent-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .talent-icon-small {
+            font-size: 28px;
+            margin-right: 12px;
+        }
+
+        .talent-info h4 {
+            color: #fff;
+            margin-bottom: 4px;
+        }
+
+        .talent-info p {
+            color: #888;
+            font-size: 13px;
+        }
+
+        .close-instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 50px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 2001;
+        }
+
+        .close-instructions:hover {
+            transform: translateX(-50%) scale(1.05);
+        }
     </style>
 </head>
 <body>
@@ -634,6 +745,81 @@
         <div class="joystick-zone" id="joystickZone">
             <div class="joystick-base"></div>
             <div class="joystick-stick" id="joystickStick"></div>
+        </div>
+
+        <!-- 游戏说明弹窗 -->
+        <div class="instructions-modal" id="instructionsModal">
+            <div class="instructions-content">
+                <h2 class="instructions-title">🎮 游戏说明</h2>
+                
+                <div class="instructions-section">
+                    <h3>核心玩法</h3>
+                    <div class="talent-item">
+                        <span class="talent-icon-small">🔥</span>
+                        <div class="talent-info">
+                            <h4>烈焰</h4>
+                            <p>高伤害火焰弹，持续燃烧伤害。技能：火焰风暴 - 向四周发射大量火球</p>
+                        </div>
+                    </div>
+                    <div class="talent-item">
+                        <span class="talent-icon-small">💨</span>
+                        <div class="talent-info">
+                            <h4>疾风</h4>
+                            <p>高速穿透子弹，机动性强。技能：风刃乱舞 - 大幅提升射速和移动速度</p>
+                        </div>
+                    </div>
+                    <div class="talent-item">
+                        <span class="talent-icon-small">⚡</span>
+                        <div class="talent-info">
+                            <h4>雷霆</h4>
+                            <p>连锁闪电攻击，范围伤害。技能：雷霆万钧 - 伤害翻倍并连锁攻击附近敌人</p>
+                        </div>
+                    </div>
+                    <div class="talent-item">
+                        <span class="talent-icon-small">❄️</span>
+                        <div class="talent-info">
+                            <h4>寒冰</h4>
+                            <p>减速冰冻子弹，控制敌人。技能：冰封领域 - 周围敌人大幅减速</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="instructions-section">
+                    <h3>游戏系统</h3>
+                    <ul>
+                        <li>纵版射击，手机竖屏完美适配</li>
+                        <li>触屏+鼠标双操控</li>
+                        <li>20级成长系统，升级提升属性</li>
+                        <li>4种敌人类型：普通/快速/坦克/射击</li>
+                        <li>3阶段BOSS战（第4分钟出现）</li>
+                        <li>每局5分钟，击败BOSS即胜利</li>
+                        <li>技能系统（Q/W键或屏幕按钮）</li>
+                        <li>PWA支持，可添加到主屏幕</li>
+                    </ul>
+                </div>
+
+                <div class="instructions-section">
+                    <h3>操作方式</h3>
+                    <ul>
+                        <li><strong>电脑：</strong>WASD/方向键移动，Q/W释放技能</li>
+                        <li><strong>手机：</strong>左下角虚拟摇杆移动，右下角技能按钮</li>
+                        <li>自动射击，无需手动开火</li>
+                        <li>ESC键可暂停游戏</li>
+                    </ul>
+                </div>
+
+                <div class="instructions-section">
+                    <h3>游戏技巧</h3>
+                    <ul>
+                        <li>合理搭配两种天赋，发挥组合效果</li>
+                        <li>优先击杀射击型敌人，避免被远程攻击</li>
+                        <li>利用寒冰减速控制敌人走位</li>
+                        <li>BOSS战注意躲避弹幕，寻找攻击间隙</li>
+                        <li>及时使用技能清理大量敌人</li>
+                    </ul>
+                </div>
+            </div>
+            <button class="close-instructions" onclick="closeInstructions()">我知道了</button>
         </div>
 
         <!-- 技能按钮 -->

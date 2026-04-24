@@ -37,28 +37,18 @@ function showTalentSelect() {
 
 // 显示游戏说明
 function showInstructions() {
-    alert(`🎮 游戏说明
+    const modal = document.getElementById('instructionsModal');
+    if (modal) {
+        modal.classList.add('active');
+    }
+}
 
-【操作方式】
-• 电脑：WASD/方向键移动，鼠标控制射击方向
-• 手机：左下角虚拟摇杆移动，自动射击
-
-【天赋系统】
-🔥 烈焰：高伤害火焰弹，技能火焰风暴
-💨 疾风：高速穿透子弹，技能风刃乱舞
-⚡ 雷霆：连锁闪电攻击，技能雷霆万钧
-❄️ 寒冰：减速冰冻子弹，技能冰封领域
-
-【游戏目标】
-• 存活5分钟或击败BOSS
-• 击杀敌人获得经验和分数
-• 升级提升属性和技能
-
-【技能按键】
-• Q键 / 左侧技能按钮：天赋1技能
-• W键 / 右侧技能按钮：天赋2技能
-
-祝你好运！`);
+// 关闭游戏说明
+function closeInstructions() {
+    const modal = document.getElementById('instructionsModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
 }
 
 // 天赋选择
@@ -164,6 +154,7 @@ window.game = game;
 window.showMainMenu = showMainMenu;
 window.showTalentSelect = showTalentSelect;
 window.showInstructions = showInstructions;
+window.closeInstructions = closeInstructions;
 window.selectTalent = selectTalent;
 window.startGame = startGame;
 window.pauseGame = pauseGame;
