@@ -731,36 +731,42 @@ class Player {
             }
         }
         
-        // 疾风技能特效
+        // 疾风技能特效 - 增强版
         if (this.skillEffects.windDance) {
-            // 风刃粒子
-            if (Math.random() < 0.6) {
-                for (let i = 0; i < 3; i++) {
+            // 大范围风刃 - 更宽更明显
+            if (Math.random() < 0.8) {
+                for (let i = 0; i < 5; i++) {
                     const side = Math.random() < 0.5 ? -1 : 1;
-                    game.particles.push(new WindParticle(
-                        this.x + side * (30 + Math.random() * 20),
-                        this.y - 20 + (Math.random() - 0.5) * 40,
-                        side * (2 + Math.random() * 3),
-                        (Math.random() - 0.5) * 2
+                    game.particles.push(new BigWindParticle(
+                        this.x + side * (40 + Math.random() * 30),
+                        this.y - 30 + (Math.random() - 0.5) * 60,
+                        side * (3 + Math.random() * 4),
+                        (Math.random() - 0.5) * 3
                     ));
                 }
             }
-            // 速度线效果
-            if (Math.random() < 0.3) {
-                game.particles.push(new SpeedLine(this.x, this.y));
+            // 速度线效果 - 更多更密集
+            if (Math.random() < 0.5) {
+                for (let i = 0; i < 3; i++) {
+                    game.particles.push(new SpeedLine(this.x + (Math.random() - 0.5) * 40, this.y));
+                }
+            }
+            // 风之光环
+            if (Math.random() < 0.2) {
+                game.particles.push(new WindRing(this.x, this.y));
             }
         }
         
-        // 雷霆技能特效
+        // 雷霆技能特效 - 全屏闪电风暴
         if (this.skillEffects.thunderChain) {
-            // 闪电环绕
-            if (Math.random() < 0.5) {
-                const lightningCount = 3;
+            // 大范围闪电 - 半屏以上
+            if (Math.random() < 0.7) {
+                const lightningCount = 5;
                 for (let i = 0; i < lightningCount; i++) {
-                    const angle = (Math.PI * 2 / lightningCount) * i + Date.now() / 300;
-                    const startDist = 25;
-                    const endDist = 60 + Math.random() * 20;
-                    game.particles.push(new LightningParticle(
+                    const angle = (Math.PI * 2 / lightningCount) * i + Date.now() / 200 + Math.random() * 0.5;
+                    const startDist = 20;
+                    const endDist = 250 + Math.random() * 150; // 扩大到半屏以上
+                    game.particles.push(new BigLightningParticle(
                         this.x + Math.cos(angle) * startDist,
                         this.y + Math.sin(angle) * startDist,
                         this.x + Math.cos(angle) * endDist,
@@ -768,39 +774,57 @@ class Player {
                     ));
                 }
             }
-            // 电火花
-            for (let i = 0; i < 4; i++) {
+            // 随机全屏闪电
+            if (Math.random() < 0.4) {
                 const angle = Math.random() * Math.PI * 2;
-                const dist = 30 + Math.random() * 30;
-                game.particles.push(new Particle(
+                const dist = 100 + Math.random() * 300;
+                game.particles.push(new BigLightningParticle(
+                    this.x,
+                    this.y,
                     this.x + Math.cos(angle) * dist,
-                    this.y + Math.sin(angle) * dist,
-                    '#feca57',
-                    2 + Math.random() * 2,
-                    0.2 + Math.random() * 0.3
+                    this.y + Math.sin(angle) * dist
                 ));
+            }
+            // 电火花 - 更多更明显
+            for (let i = 0; i < 8; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 30 + Math.random() * 100;
+                game.particles.push(new ThunderSparkParticle(
+                    this.x + Math.cos(angle) * dist,
+                    this.y + Math.sin(angle) * dist
+                ));
+            }
+            // 雷霆光环
+            if (Math.random() < 0.3) {
+                game.particles.push(new ThunderRing(this.x, this.y));
             }
         }
         
-        // 寒冰技能特效
+        // 寒冰技能特效 - 增强版
         if (this.skillEffects.iceField) {
-            // 冰霜粒子
-            if (Math.random() < 0.4) {
-                for (let i = 0; i < 6; i++) {
+            // 大范围冰霜粒子 - 更多更大
+            if (Math.random() < 0.6) {
+                for (let i = 0; i < 10; i++) {
                     const angle = Math.random() * Math.PI * 2;
-                    const dist = Math.random() * 150;
-                    game.particles.push(new IceParticle(
+                    const dist = Math.random() * 180;
+                    game.particles.push(new BigIceParticle(
                         this.x + Math.cos(angle) * dist,
                         this.y + Math.sin(angle) * dist
                     ));
                 }
             }
-            // 雪花效果
-            if (Math.random() < 0.3) {
-                game.particles.push(new SnowParticle(
-                    this.x + (Math.random() - 0.5) * 200,
-                    this.y + (Math.random() - 0.5) * 200
-                ));
+            // 雪花效果 - 更密集
+            if (Math.random() < 0.5) {
+                for (let i = 0; i < 3; i++) {
+                    game.particles.push(new BigSnowParticle(
+                        this.x + (Math.random() - 0.5) * 250,
+                        this.y + (Math.random() - 0.5) * 250
+                    ));
+                }
+            }
+            // 冰霜光环
+            if (Math.random() < 0.2) {
+                game.particles.push(new IceRing(this.x, this.y));
             }
         }
     }
@@ -1710,6 +1734,471 @@ class LightningParticle {
         ctx.shadowBlur = 5;
         ctx.stroke();
         
+        ctx.restore();
+    }
+}
+
+// ==================== 大范围闪电粒子 ====================
+class BigLightningParticle {
+    constructor(x1, y1, x2, y2) {
+        this.x1 = x1;
+        this.y1 = y1;
+        this.x2 = x2;
+        this.y2 = y2;
+        this.life = 0.2 + Math.random() * 0.15;
+        this.maxLife = this.life;
+        this.active = true;
+        this.segments = this.generateSegments();
+        this.branches = this.generateBranches();
+    }
+    
+    generateSegments() {
+        const segments = [];
+        const dx = this.x2 - this.x1;
+        const dy = this.y2 - this.y1;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const count = Math.floor(dist / 15);
+        
+        let x = this.x1;
+        let y = this.y1;
+        
+        for (let i = 0; i < count; i++) {
+            const t = (i + 1) / count;
+            const targetX = this.x1 + dx * t;
+            const targetY = this.y1 + dy * t;
+            const offsetX = (Math.random() - 0.5) * 30;
+            const offsetY = (Math.random() - 0.5) * 30;
+            
+            segments.push({
+                x1: x,
+                y1: y,
+                x2: targetX + offsetX,
+                y2: targetY + offsetY
+            });
+            
+            x = targetX + offsetX;
+            y = targetY + offsetY;
+        }
+        
+        segments.push({
+            x1: x,
+            y1: y,
+            x2: this.x2,
+            y2: this.y2
+        });
+        
+        return segments;
+    }
+    
+    generateBranches() {
+        const branches = [];
+        const numBranches = 2 + Math.floor(Math.random() * 3);
+        
+        for (let i = 0; i < numBranches; i++) {
+            const segIndex = Math.floor(Math.random() * (this.segments.length - 1)) + 1;
+            const seg = this.segments[segIndex];
+            const angle = Math.random() * Math.PI * 2;
+            const length = 30 + Math.random() * 50;
+            
+            branches.push({
+                x1: seg.x1,
+                y1: seg.y1,
+                x2: seg.x1 + Math.cos(angle) * length,
+                y2: seg.y1 + Math.sin(angle) * length
+            });
+        }
+        
+        return branches;
+    }
+    
+    update(dt) {
+        this.life -= dt;
+        if (this.life <= 0) {
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        const alpha = this.life / this.maxLife;
+        ctx.globalAlpha = alpha;
+        
+        // 外层粗线
+        ctx.strokeStyle = '#ffeb3b';
+        ctx.lineWidth = 8;
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = '#feca57';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        this.drawPath(ctx, this.segments);
+        
+        // 中层
+        ctx.strokeStyle = '#feca57';
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 20;
+        this.drawPath(ctx, this.segments);
+        
+        // 内层亮线
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 10;
+        this.drawPath(ctx, this.segments);
+        
+        // 绘制分支
+        ctx.strokeStyle = '#feca57';
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 15;
+        for (const branch of this.branches) {
+            ctx.beginPath();
+            ctx.moveTo(branch.x1, branch.y1);
+            ctx.lineTo(branch.x2, branch.y2);
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+    
+    drawPath(ctx, segments) {
+        ctx.beginPath();
+        ctx.moveTo(segments[0].x1, segments[0].y1);
+        for (const seg of segments) {
+            ctx.lineTo(seg.x2, seg.y2);
+        }
+        ctx.stroke();
+    }
+}
+
+// ==================== 雷霆电火花粒子 ====================
+class ThunderSparkParticle {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 8;
+        this.vy = (Math.random() - 0.5) * 8;
+        this.life = 0.3 + Math.random() * 0.2;
+        this.maxLife = this.life;
+        this.active = true;
+        this.size = 6 + Math.random() * 6;
+    }
+    
+    update(dt) {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.95;
+        this.vy *= 0.95;
+        this.life -= dt;
+        this.size *= 0.95;
+        
+        if (this.life <= 0 || this.size < 1) {
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        ctx.globalAlpha = this.life / this.maxLife;
+        
+        // 外层光晕
+        ctx.fillStyle = '#ffeb3b';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#feca57';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 内层核心
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
+// ==================== 雷霆光环 ====================
+class ThunderRing {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = 30;
+        this.maxRadius = 200;
+        this.life = 0.4;
+        this.maxLife = this.life;
+        this.active = true;
+    }
+    
+    update(dt) {
+        this.radius += (this.maxRadius - this.radius) * 0.1;
+        this.life -= dt;
+        
+        if (this.life <= 0) {
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        ctx.globalAlpha = (this.life / this.maxLife) * 0.6;
+        ctx.strokeStyle = '#feca57';
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 25;
+        ctx.shadowColor = '#feca57';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // 内部填充
+        ctx.fillStyle = 'rgba(254, 202, 87, 0.1)';
+        ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
+// ==================== 大风刃粒子 ====================
+class BigWindParticle {
+    constructor(x, y, vx, vy) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.life = 0.6 + Math.random() * 0.4;
+        this.maxLife = this.life;
+        this.active = true;
+        this.width = 35 + Math.random() * 25;
+        this.height = 6 + Math.random() * 4;
+    }
+    
+    update(dt) {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= dt;
+        this.width *= 0.97;
+        
+        if (this.life <= 0) {
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        ctx.globalAlpha = (this.life / this.maxLife) * 0.9;
+        
+        // 外层光晕
+        ctx.fillStyle = '#48dbfb';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#48dbfb';
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, this.width / 2, this.height / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 内层核心
+        ctx.fillStyle = '#a8c0ff';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#a8c0ff';
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, this.width / 3, this.height / 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
+// ==================== 风之光环 ====================
+class WindRing {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = 40;
+        this.maxRadius = 150;
+        this.life = 0.5;
+        this.maxLife = this.life;
+        this.active = true;
+    }
+    
+    update(dt) {
+        this.radius += (this.maxRadius - this.radius) * 0.08;
+        this.life -= dt;
+        
+        if (this.life <= 0) {
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        ctx.globalAlpha = (this.life / this.maxLife) * 0.7;
+        ctx.strokeStyle = '#48dbfb';
+        ctx.lineWidth = 5;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#48dbfb';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+// ==================== 大冰霜粒子 ====================
+class BigIceParticle {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 0.8;
+        this.vy = (Math.random() - 0.5) * 0.8;
+        this.life = 1.2 + Math.random() * 0.6;
+        this.maxLife = this.life;
+        this.active = true;
+        this.size = 8 + Math.random() * 8;
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotationSpeed = (Math.random() - 0.5) * 3;
+    }
+    
+    update(dt) {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.rotation += this.rotationSpeed * dt;
+        this.life -= dt;
+        
+        if (this.life <= 0) {
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        ctx.globalAlpha = (this.life / this.maxLife) * 0.9;
+        
+        // 外层光晕
+        ctx.fillStyle = '#a29bfe';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#a29bfe';
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const r = i % 2 === 0 ? this.size : this.size / 2;
+            const x = Math.cos(angle) * r;
+            const y = Math.sin(angle) * r;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        
+        // 内层核心
+        ctx.fillStyle = '#e0e0ff';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#e0e0ff';
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const r = i % 2 === 0 ? this.size * 0.6 : this.size * 0.3;
+            const x = Math.cos(angle) * r;
+            const y = Math.sin(angle) * r;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
+// ==================== 大雪花粒子 ====================
+class BigSnowParticle {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 1.5;
+        this.vy = -0.8 - Math.random() * 0.8;
+        this.life = 2.5 + Math.random();
+        this.maxLife = this.life;
+        this.active = true;
+        this.size = 4 + Math.random() * 5;
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotationSpeed = (Math.random() - 0.5) * 1.5;
+    }
+    
+    update(dt) {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.rotation += this.rotationSpeed * dt;
+        this.life -= dt;
+        
+        if (this.life <= 0) {
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        ctx.globalAlpha = (this.life / this.maxLife) * 0.8;
+        ctx.fillStyle = '#e0e0ff';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#a29bfe';
+        
+        // 绘制六角雪花
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(angle) * this.size, Math.sin(angle) * this.size);
+        }
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#e0e0ff';
+        ctx.stroke();
+        
+        // 中心点
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
+// ==================== 冰霜光环 ====================
+class IceRing {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = 50;
+        this.maxRadius = 180;
+        this.life = 0.6;
+        this.maxLife = this.life;
+        this.active = true;
+    }
+    
+    update(dt) {
+        this.radius += (this.maxRadius - this.radius) * 0.06;
+        this.life -= dt;
+        
+        if (this.life <= 0) {
+            this.active = false;
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        ctx.globalAlpha = (this.life / this.maxLife) * 0.7;
+        ctx.strokeStyle = '#a29bfe';
+        ctx.lineWidth = 6;
+        ctx.shadowBlur = 25;
+        ctx.shadowColor = '#a29bfe';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // 内部填充
+        ctx.fillStyle = 'rgba(162, 155, 254, 0.15)';
+        ctx.fill();
         ctx.restore();
     }
 }

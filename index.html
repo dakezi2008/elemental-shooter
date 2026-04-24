@@ -348,21 +348,22 @@
             transition: transform 0.1s;
         }
 
-        /* 技能按钮 */
+        /* 技能按钮 - 斜向布局 */
         .skill-buttons {
             position: absolute;
-            bottom: 80px;
+            bottom: 100px;
             right: 20px;
             display: flex;
-            gap: 15px;
+            flex-direction: column;
+            gap: 20px;
         }
 
         .skill-btn {
-            width: 70px;
-            height: 70px;
+            width: 85px;
+            height: 85px;
             border-radius: 50%;
-            border: 3px solid;
-            background: rgba(0, 0, 0, 0.5);
+            border: 4px solid;
+            background: rgba(0, 0, 0, 0.6);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -370,10 +371,11 @@
             cursor: pointer;
             position: relative;
             transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
 
         .skill-btn:active {
-            transform: scale(0.95);
+            transform: scale(0.92);
         }
 
         .skill-btn.cooldown {
@@ -381,12 +383,14 @@
         }
 
         .skill-btn .icon {
-            font-size: 24px;
+            font-size: 32px;
+            margin-bottom: 2px;
         }
 
         .skill-btn .key {
-            font-size: 10px;
-            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: bold;
         }
 
         .skill-btn .cooldown-overlay {
@@ -397,6 +401,15 @@
             background: rgba(0, 0, 0, 0.7);
             border-radius: 0 0 50% 50%;
             transition: height 0.1s;
+        }
+
+        /* 斜向偏移 - J在右下，K在左上 */
+        .skill-btn:nth-child(1) {
+            transform: translateX(-25px);
+        }
+
+        .skill-btn:nth-child(2) {
+            transform: translateX(15px);
         }
 
         /* 游戏结束界面 */
