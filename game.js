@@ -209,7 +209,7 @@ class Game {
             btn.style.borderColor = talent.color;
             btn.innerHTML = `
                 <span class="icon">${talent.icon}</span>
-                <span class="key">${index === 0 ? 'Q' : 'W'}</span>
+                <span class="key">${index === 0 ? 'J' : 'K'}</span>
                 <div class="cooldown-overlay" id="skill-cd-${index}"></div>
             `;
             btn.onclick = () => this.player && this.player.activateSkill(index);
@@ -280,7 +280,33 @@ class Game {
     
     levelUp() {
         this.level++;
-        this.player && this.player.onLevelUp();
+        this.pause();
+        this.showLevelUpOptions();
+    }
+    
+    showLevelUpOptions() {
+        const modal = document.getElementById('levelUpModal');
+        if (modal) {
+            modal.classList.add('active');
+        }
+    }
+    
+    selectLevelUpOption(option) {
+        if (this.player) {
+            if (option === 'multishot') {
+                this.player.extraBullets = Math.min(4, (this.player.extraBullets || 0) + 1);
+            } else if (option === 'width') {
+                this.player.bulletWidthMultiplier = (this.player.bulletWidthMultiplier || 1) + 0.3;
+            }
+        }
+        
+        const modal = document.getElementById('levelUpModal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+        
+        this.resume();
+        
         const levelUpEl = document.getElementById('levelUp');
         if (levelUpEl) {
             levelUpEl.classList.add('active');
@@ -522,6 +548,9 @@ class Player {
             thunderChain: false,
             iceField: false
         };
+        
+        this.extraBullets = 0;
+        this.bulletWidthMultiplier = 1;
     }
     
     update(dt, game) {
@@ -602,13 +631,32 @@ class Player {
     
     createBullet(talent, game, index) {
         const t = TALENTS[talent];
-        const offset = index === 0 ? -10 : 10;
+        const baseOffset = index === 0 ? -10 : 10;
+        const damage = this.getBulletDamage(t.damage);
+        const speed = CONFIG.BULLET_SPEED * (talent === 'wind' ? 1.5 : 1);
+        const radius = 5 * this.bulletWidthMultiplier;
         
+        // 基础子弹
         game.bullets.push(new Bullet(
-            this.x + offset, this.y - 20,
-            0, -CONFIG.BULLET_SPEED * (talent === 'wind' ? 1.5 : 1),
-            t.damage, t.color, talent, talent === 'wind'
+            this.x + baseOffset, this.y - 20,
+            0, -speed,
+            damage, t.color, talent, talent === 'wind', radius
         ));
+        
+        // 额外弹道
+        const totalExtra = this.extraBullets;
+        for (let i = 0; i < totalExtra; i++) {
+            const angleOffset = ((i + 1) / (totalExtra + 1) - 0.5) * Math.PI / 3;
+            const vx = Math.sin(angleOffset) * speed * 0.3;
+            const vy = -Math.cos(angleOffset) * speed;
+            const xOffset = (i % 2 === 0 ? -1 : 1) * (15 + i * 8);
+            
+            game.bullets.push(new Bullet(
+                this.x + baseOffset + xOffset, this.y - 20,
+                vx, vy,
+                damage * 0.7, t.color, talent, talent === 'wind', radius * 0.8
+            ));
+        }
     }
     
     activateSkill(index) {
@@ -682,6 +730,11 @@ class Player {
         this.maxHealth += 20;
         this.health = this.maxHealth;
         this.speed += 0.5;
+        this.bulletDamageMultiplier = 1 + (game.level - 1) * 0.1;
+    }
+    
+    getBulletDamage(baseDamage) {
+        return baseDamage * (this.bulletDamageMultiplier || 1);
     }
     
     render(ctx) {
@@ -691,39 +744,118 @@ class Player {
             ctx.globalAlpha = 0.5;
         }
         
-        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
-        gradient.addColorStop(0, '#667eea');
-        gradient.addColorStop(1, '#764ba2');
-        ctx.fillStyle = gradient;
+        // 飞船主体 - 三角形设计
+        const time = Date.now() / 200;
+        const floatY = Math.sin(time) * 3;
+        
+        ctx.translate(this.x, this.y + floatY);
+        
+        // 引擎火焰效果
+        const flameHeight = 15 + Math.random() * 10;
+        const flameGradient = ctx.createLinearGradient(0, 10, 0, 25 + flameHeight);
+        flameGradient.addColorStop(0, '#667eea');
+        flameGradient.addColorStop(0.5, '#feca57');
+        flameGradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = flameGradient;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+        ctx.moveTo(-8, 15);
+        ctx.lineTo(0, 25 + flameHeight);
+        ctx.lineTo(8, 15);
         ctx.fill();
         
-        ctx.font = '20px Arial';
+        // 飞船主体渐变
+        const bodyGradient = ctx.createLinearGradient(0, -25, 0, 20);
+        bodyGradient.addColorStop(0, '#a8c0ff');
+        bodyGradient.addColorStop(0.5, '#667eea');
+        bodyGradient.addColorStop(1, '#764ba2');
+        
+        // 飞船主体
+        ctx.fillStyle = bodyGradient;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#667eea';
+        ctx.beginPath();
+        ctx.moveTo(0, -25);
+        ctx.lineTo(18, 15);
+        ctx.lineTo(0, 10);
+        ctx.lineTo(-18, 15);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 飞船细节 - 中心核心
+        const coreGradient = ctx.createRadialGradient(0, -5, 0, 0, -5, 12);
+        coreGradient.addColorStop(0, '#fff');
+        coreGradient.addColorStop(0.5, '#feca57');
+        coreGradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = coreGradient;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#feca57';
+        ctx.beginPath();
+        ctx.arc(0, -5, 12, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 天赋图标显示
+        ctx.shadowBlur = 0;
+        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         if (this.talents[0]) {
-            ctx.fillText(TALENTS[this.talents[0]].icon, this.x - 8, this.y);
+            ctx.fillStyle = TALENTS[this.talents[0]].color;
+            ctx.beginPath();
+            ctx.arc(-10, 0, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.fillText(TALENTS[this.talents[0]].icon, -10, 1);
         }
         if (this.talents[1]) {
-            ctx.fillText(TALENTS[this.talents[1]].icon, this.x + 8, this.y);
+            ctx.fillStyle = TALENTS[this.talents[1]].color;
+            ctx.beginPath();
+            ctx.arc(10, 0, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.fillText(TALENTS[this.talents[1]].icon, 10, 1);
         }
         
+        // 侧翼装饰
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.beginPath();
+        ctx.moveTo(-15, 5);
+        ctx.lineTo(-22, 12);
+        ctx.lineTo(-15, 10);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(15, 5);
+        ctx.lineTo(22, 12);
+        ctx.lineTo(15, 10);
+        ctx.fill();
+        
+        ctx.restore();
+        
+        // 冰封领域效果
         if (this.skillEffects.iceField) {
-            ctx.strokeStyle = 'rgba(162, 155, 254, 0.5)';
+            ctx.save();
+            ctx.strokeStyle = 'rgba(162, 155, 254, 0.4)';
             ctx.lineWidth = 3;
+            ctx.setLineDash([10, 5]);
             ctx.beginPath();
             ctx.arc(this.x, this.y, 150, 0, Math.PI * 2);
             ctx.stroke();
+            
+            // 内部淡蓝色光晕
+            const iceGradient = ctx.createRadialGradient(this.x, this.y, 50, this.x, this.y, 150);
+            iceGradient.addColorStop(0, 'rgba(162, 155, 254, 0.1)');
+            iceGradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = iceGradient;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 150, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
         }
-        
-        ctx.restore();
     }
 }
 
 // ==================== 子弹类 ====================
 class Bullet {
-    constructor(x, y, vx, vy, damage, color, type, penetrate = false) {
+    constructor(x, y, vx, vy, damage, color, type, penetrate = false, radius = 5) {
         this.x = x;
         this.y = y;
         this.vx = vx;
@@ -733,7 +865,7 @@ class Bullet {
         this.type = type;
         this.penetrate = penetrate;
         this.active = true;
-        this.radius = 5;
+        this.radius = radius;
         this.hitEnemies = new Set();
         this.fromEnemy = false;
     }
@@ -931,37 +1063,165 @@ class Enemy {
     
     render(ctx) {
         ctx.save();
+        ctx.translate(this.x, this.y);
         
-        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size / 2);
-        gradient.addColorStop(0, this.color);
-        gradient.addColorStop(1, this.darkenColor(this.color, 50));
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
-        ctx.fill();
+        const time = Date.now() / 300;
+        const pulse = 1 + Math.sin(time * 2) * 0.05;
+        ctx.scale(pulse, pulse);
         
-        const healthPercent = this.health / this.maxHealth;
-        ctx.fillStyle = '#333';
-        ctx.fillRect(this.x - 20, this.y - this.size / 2 - 10, 40, 5);
-        ctx.fillStyle = healthPercent > 0.5 ? '#4CAF50' : healthPercent > 0.25 ? '#FFC107' : '#f44336';
-        ctx.fillRect(this.x - 20, this.y - this.size / 2 - 10, 40 * healthPercent, 5);
-        
-        if (this.speedMultiplier < 1) {
-            ctx.strokeStyle = '#a29bfe';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size / 2 + 5, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-        
-        if (this.burning > 0) {
-            ctx.fillStyle = 'rgba(255, 107, 107, 0.3)';
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size / 2 + 3, 0, Math.PI * 2);
-            ctx.fill();
+        // 根据敌人类型绘制不同形状
+        switch(this.type) {
+            case 'basic':
+                this.renderBasic(ctx);
+                break;
+            case 'fast':
+                this.renderFast(ctx);
+                break;
+            case 'tank':
+                this.renderTank(ctx);
+                break;
+            case 'shooter':
+                this.renderShooter(ctx);
+                break;
         }
         
         ctx.restore();
+        
+        // 血条（在变换外绘制）
+        const healthPercent = this.health / this.maxHealth;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(this.x - 22, this.y - this.size / 2 - 15, 44, 7);
+        ctx.fillStyle = healthPercent > 0.5 ? '#4CAF50' : healthPercent > 0.25 ? '#FFC107' : '#f44336';
+        ctx.fillRect(this.x - 20, this.y - this.size / 2 - 13, 40 * healthPercent, 3);
+        
+        // 减速效果
+        if (this.speedMultiplier < 1) {
+            ctx.save();
+            ctx.strokeStyle = '#a29bfe';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 3]);
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size / 2 + 8, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+        
+        // 燃烧效果
+        if (this.burning > 0) {
+            ctx.save();
+            ctx.fillStyle = `rgba(255, 107, 107, ${0.2 + Math.random() * 0.3})`;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size / 2 + 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+    
+    renderBasic(ctx) {
+        // 基础敌人 - 菱形
+        const gradient = ctx.createLinearGradient(0, -this.size/2, 0, this.size/2);
+        gradient.addColorStop(0, '#ff8585');
+        gradient.addColorStop(0.5, this.color);
+        gradient.addColorStop(1, this.darkenColor(this.color, 40));
+        
+        ctx.fillStyle = gradient;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
+        ctx.beginPath();
+        ctx.moveTo(0, -this.size/2);
+        ctx.lineTo(this.size/2, 0);
+        ctx.lineTo(0, this.size/2);
+        ctx.lineTo(-this.size/2, 0);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 核心
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(0, 0, 6, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    renderFast(ctx) {
+        // 快速敌人 - 箭头形
+        const gradient = ctx.createLinearGradient(0, -this.size/2, 0, this.size/2);
+        gradient.addColorStop(0, '#85e3ff');
+        gradient.addColorStop(0.5, this.color);
+        gradient.addColorStop(1, this.darkenColor(this.color, 40));
+        
+        ctx.fillStyle = gradient;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
+        ctx.beginPath();
+        ctx.moveTo(0, this.size/2);
+        ctx.lineTo(this.size/3, -this.size/4);
+        ctx.lineTo(0, -this.size/2);
+        ctx.lineTo(-this.size/3, -this.size/4);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 尾部拖尾效果
+        ctx.fillStyle = 'rgba(72, 219, 251, 0.5)';
+        ctx.beginPath();
+        ctx.moveTo(-5, this.size/2);
+        ctx.lineTo(0, this.size/2 + 10);
+        ctx.lineTo(5, this.size/2);
+        ctx.fill();
+    }
+    
+    renderTank(ctx) {
+        // 坦克敌人 - 六边形
+        const gradient = ctx.createLinearGradient(0, -this.size/2, 0, this.size/2);
+        gradient.addColorStop(0, '#b8b3ff');
+        gradient.addColorStop(0.5, this.color);
+        gradient.addColorStop(1, this.darkenColor(this.color, 40));
+        
+        ctx.fillStyle = gradient;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const x = Math.cos(angle) * this.size/2;
+            const y = Math.sin(angle) * this.size/2;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        
+        // 装甲细节
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size/4, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    
+    renderShooter(ctx) {
+        // 射击敌人 - 圆形带炮管
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size/2);
+        gradient.addColorStop(0, '#ffe285');
+        gradient.addColorStop(0.5, this.color);
+        gradient.addColorStop(1, this.darkenColor(this.color, 40));
+        
+        ctx.fillStyle = gradient;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size/2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 炮管
+        ctx.fillStyle = '#d4a017';
+        ctx.fillRect(-4, 0, 8, this.size/2 + 5);
+        
+        // 核心
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
     }
     
     darkenColor(color, percent) {
@@ -1312,10 +1572,10 @@ document.addEventListener('gestureend', (e) => e.preventDefault());
 document.addEventListener('keydown', (e) => {
     if (!game || game.state !== GameState.PLAYING) return;
     
-    if (e.key.toLowerCase() === 'q') {
+    if (e.key.toLowerCase() === 'j') {
         game.player.activateSkill(0);
     }
-    if (e.key.toLowerCase() === 'w') {
+    if (e.key.toLowerCase() === 'k') {
         game.player.activateSkill(1);
     }
 });
@@ -1329,6 +1589,7 @@ window.startGame = startGame;
 window.pauseGame = pauseGame;
 window.resumeGame = resumeGame;
 window.returnToMenu = returnToMenu;
+window.selectLevelUpOption = (option) => game && game.selectLevelUpOption(option);
 
 console.log('🎮 元素射击游戏已加载！');
 console.log('✅ 游戏系统初始化完成！');

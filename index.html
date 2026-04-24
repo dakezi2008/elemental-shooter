@@ -668,6 +668,86 @@
         .close-instructions:hover {
             transform: translateX(-50%) scale(1.05);
         }
+
+        /* 升级选择弹窗 */
+        .levelup-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .levelup-modal.active {
+            display: flex;
+        }
+
+        .levelup-content {
+            background: linear-gradient(135deg, #1a1a3e, #2d2d5a);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            border: 2px solid #667eea;
+        }
+
+        .levelup-title {
+            font-size: 28px;
+            color: #feca57;
+            margin-bottom: 10px;
+        }
+
+        .levelup-subtitle {
+            font-size: 16px;
+            color: #aaa;
+            margin-bottom: 30px;
+        }
+
+        .levelup-options {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .levelup-option {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+            flex: 1;
+            max-width: 150px;
+        }
+
+        .levelup-option:hover {
+            background: rgba(102, 126, 234, 0.3);
+            border-color: #667eea;
+            transform: scale(1.05);
+        }
+
+        .levelup-option .option-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+        }
+
+        .levelup-option h3 {
+            color: #fff;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .levelup-option p {
+            color: #aaa;
+            font-size: 14px;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -798,7 +878,7 @@
                         <li>4种敌人类型：普通/快速/坦克/射击</li>
                         <li>3阶段BOSS战（第4分钟出现）</li>
                         <li>每局5分钟，击败BOSS即胜利</li>
-                        <li>技能系统（Q/W键或屏幕按钮）</li>
+                        <li>技能系统（J/K键或屏幕按钮）</li>
                         <li>PWA支持，可添加到主屏幕</li>
                     </ul>
                 </div>
@@ -806,7 +886,7 @@
                 <div class="instructions-section">
                     <h3>操作方式</h3>
                     <ul>
-                        <li><strong>电脑：</strong>WASD/方向键移动，Q/W释放技能</li>
+                        <li><strong>电脑：</strong>WASD/方向键移动，J/K释放技能</li>
                         <li><strong>手机：</strong>左下角虚拟摇杆移动，右下角技能按钮</li>
                         <li>自动射击，无需手动开火</li>
                         <li>ESC键可暂停游戏</li>
@@ -825,6 +905,26 @@
                 </div>
             </div>
             <button class="close-instructions" onclick="closeInstructions()">我知道了</button>
+        </div>
+
+        <!-- 升级选择弹窗 -->
+        <div class="levelup-modal" id="levelUpModal">
+            <div class="levelup-content">
+                <h2 class="levelup-title">🎉 等级提升！</h2>
+                <p class="levelup-subtitle">选择一项强化</p>
+                <div class="levelup-options">
+                    <div class="levelup-option" onclick="selectLevelUpOption('multishot')">
+                        <div class="option-icon">🔫</div>
+                        <h3>增加弹道</h3>
+                        <p>额外发射1发子弹<br>最多4发</p>
+                    </div>
+                    <div class="levelup-option" onclick="selectLevelUpOption('width')">
+                        <div class="option-icon">💥</div>
+                        <h3>子弹强化</h3>
+                        <p>子弹大小+30%<br>更容易命中</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 技能按钮 -->
