@@ -52,12 +52,12 @@ class Game {
         
         this.keys = {};
         this.mouse = { x: 0, y: 0, down: false };
-        this.joystick = { active: false, dx: 0, dy: 0 };
+        this.touch = { active: false, x: 0, y: 0 };
         
         this.shake = 0;
         
         this.setupEventListeners();
-        this.setupJoystick();
+        this.setupTouchControl();
         this.loop = this.loop.bind(this);
         requestAnimationFrame(this.loop);
     }
@@ -119,54 +119,59 @@ class Game {
         });
     }
     
-    setupJoystick() {
-        const zone = document.getElementById('joystickZone');
-        const stick = document.getElementById('joystickStick');
-        if (!zone || !stick) return;
-        
-        let startX, startY;
-        
-        const handleStart = (e) => {
-            e.preventDefault();
-            const touch = e.touches ? e.touches[0] : e;
-            const rect = zone.getBoundingClientRect();
-            startX = rect.left + rect.width / 2;
-            startY = rect.top + rect.height / 2;
-            this.joystick.active = true;
-        };
-        
-        const handleMove = (e) => {
-            if (!this.joystick.active) return;
-            e.preventDefault();
-            const touch = e.touches ? e.touches[0] : e;
-            const dx = touch.clientX - startX;
-            const dy = touch.clientY - startY;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const maxDistance = 35;
+    setupTouchControl() {
+        // 全屏触摸控制 - 手指位置决定移动方向
+        const handleTouchStart = (e) => {
+            if (this.state !== GameState.PLAYING) return;
+            // 忽略技能按钮区域的触摸
+            if (e.target.closest('.skill-buttons')) return;
             
-            if (distance > maxDistance) {
-                const ratio = maxDistance / distance;
-                stick.style.transform = `translate(calc(-50% + ${dx * ratio}px), calc(-50% + ${dy * ratio}px))`;
-                this.joystick.dx = (dx / distance) * ratio;
-                this.joystick.dy = (dy / distance) * ratio;
-            } else {
-                stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-                this.joystick.dx = dx / maxDistance;
-                this.joystick.dy = dy / maxDistance;
+            this.touch.active = true;
+            if (e.touches.length > 0) {
+                this.touch.x = e.touches[0].clientX;
+                this.touch.y = e.touches[0].clientY;
             }
         };
         
-        const handleEnd = (e) => {
-            e.preventDefault();
-            this.joystick.active = false;
-            this.joystick.dx = 0;
-            this.joystick.dy = 0;
-            stick.style.transform = 'translate(-50%, -50%)';
+        const handleTouchMove = (e) => {
+            if (!this.touch.active) return;
+            if (e.touches.length > 0) {
+                this.touch.x = e.touches[0].clientX;
+                this.touch.y = e.touches[0].clientY;
+            }
         };
         
-        zone.addEventListener('touchstart', handleStart);
-        zone.addEventListener('touchmove', handleMove);
-        zone.addEventListener('touchend', handleEnd);
+        const handleTouchEnd = (e) => {
+            this.touch.active = false;
+        };
+        
+        // 鼠标控制 - 类似触摸
+        const handleMouseMove = (e) => {
+            if (this.state !== GameState.PLAYING) return;
+            this.mouse.x = e.clientX;
+            this.mouse.y = e.clientY;
+        };
+        
+        const handleMouseDown = (e) => {
+            if (this.state !== GameState.PLAYING) return;
+            // 忽略技能按钮区域的点击
+            if (e.target.closest('.skill-buttons')) return;
+            this.mouse.down = true;
+        };
+        
+        const handleMouseUp = () => {
+            this.mouse.down = false;
+        };
+        
+        // 绑定到整个文档以实现全屏控制
+        document.addEventListener('touchstart', handleTouchStart, { passive: false });
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
+        document.addEventListener('touchend', handleTouchEnd);
+        document.addEventListener('touchcancel', handleTouchEnd);
+        
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('mouseup', handleMouseUp);
     }
     
     start(selectedTalents) {
@@ -192,7 +197,6 @@ class Game {
         document.getElementById('mainMenu').style.display = 'none';
         document.getElementById('talentSelect').classList.remove('active');
         document.getElementById('hud').classList.add('active');
-        document.getElementById('joystickZone').style.display = 'block';
         document.getElementById('skillButtons').style.display = 'flex';
         document.getElementById('gameOver').classList.remove('active');
     }
@@ -236,7 +240,6 @@ class Game {
         document.getElementById('finalLevel').textContent = this.level;
         document.getElementById('gameOver').classList.add('active');
         document.getElementById('hud').classList.remove('active');
-        document.getElementById('joystickZone').style.display = 'none';
         document.getElementById('skillButtons').style.display = 'none';
         document.getElementById('bossHud').classList.remove('active');
     }
@@ -555,22 +558,51 @@ class Player {
     
     update(dt, game) {
         let dx = 0, dy = 0;
+        let usingTouchOrMouse = false;
         
+        // 键盘控制
         if (game.keys['w'] || game.keys['arrowup']) dy -= 1;
         if (game.keys['s'] || game.keys['arrowdown']) dy += 1;
         if (game.keys['a'] || game.keys['arrowleft']) dx -= 1;
         if (game.keys['d'] || game.keys['arrowright']) dx += 1;
         
-        if (game.joystick.active) {
-            dx = game.joystick.dx;
-            dy = game.joystick.dy;
+        // 触摸控制 - 手指位置相对于玩家位置决定移动方向
+        if (game.touch.active && !usingTouchOrMouse) {
+            const targetX = game.touch.x;
+            const targetY = game.touch.y;
+            const diffX = targetX - this.x;
+            const diffY = targetY - this.y;
+            const distance = Math.sqrt(diffX * diffX + diffY * diffY);
+            
+            if (distance > 10) {
+                dx = diffX / distance;
+                dy = diffY / distance;
+                usingTouchOrMouse = true;
+            }
+        }
+        
+        // 鼠标控制 - 按住鼠标时向鼠标位置移动
+        if (game.mouse.down && !usingTouchOrMouse) {
+            const targetX = game.mouse.x;
+            const targetY = game.mouse.y;
+            const diffX = targetX - this.x;
+            const diffY = targetY - this.y;
+            const distance = Math.sqrt(diffX * diffX + diffY * diffY);
+            
+            if (distance > 10) {
+                dx = diffX / distance;
+                dy = diffY / distance;
+                usingTouchOrMouse = true;
+            }
         }
         
         if (dx !== 0 || dy !== 0) {
-            const length = Math.sqrt(dx * dx + dy * dy);
-            if (length > 0) {
-                dx /= length;
-                dy /= length;
+            if (!usingTouchOrMouse) {
+                const length = Math.sqrt(dx * dx + dy * dy);
+                if (length > 0) {
+                    dx /= length;
+                    dy /= length;
+                }
             }
             
             if (this.talents.includes('wind')) {
@@ -2544,7 +2576,6 @@ function showMainMenu() {
     document.getElementById('gameOver').classList.remove('active');
     document.getElementById('pauseMenu').classList.remove('active');
     document.getElementById('hud').classList.remove('active');
-    document.getElementById('joystickZone').style.display = 'none';
     document.getElementById('skillButtons').style.display = 'none';
     document.getElementById('bossHud').classList.remove('active');
     document.getElementById('instructionsModal')?.classList.remove('active');

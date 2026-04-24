@@ -318,38 +318,6 @@
             transition: width 0.3s;
         }
 
-        /* 虚拟摇杆 - 增大尺寸 */
-        .joystick-zone {
-            position: absolute;
-            bottom: 80px;
-            left: 20px;
-            width: 150px;
-            height: 150px;
-        }
-
-        .joystick-base {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border: 4px solid rgba(255, 255, 255, 0.4);
-            border-radius: 50%;
-            background: rgba(0, 0, 0, 0.4);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        }
-
-        .joystick-stick {
-            position: absolute;
-            width: 65px;
-            height: 65px;
-            background: rgba(255, 255, 255, 0.6);
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            transition: transform 0.1s;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-        }
-
         /* 技能按钮 - 斜向布局 */
         .skill-buttons {
             position: absolute;
@@ -865,12 +833,6 @@
             <div class="level-up-text">LEVEL UP!</div>
         </div>
 
-        <!-- 虚拟摇杆 -->
-        <div class="joystick-zone" id="joystickZone">
-            <div class="joystick-base"></div>
-            <div class="joystick-stick" id="joystickStick"></div>
-        </div>
-
         <!-- 游戏说明弹窗 -->
         <div class="instructions-modal" id="instructionsModal">
             <div class="instructions-content">
@@ -912,7 +874,7 @@
                     <h3>游戏系统</h3>
                     <ul>
                         <li>纵版射击，手机竖屏完美适配</li>
-                        <li>触屏+鼠标双操控</li>
+                        <li>全屏触摸+鼠标双操控</li>
                         <li>20级成长系统，升级提升属性</li>
                         <li>4种敌人类型：普通/快速/坦克/射击</li>
                         <li>3阶段BOSS战（第4分钟出现）</li>
@@ -925,8 +887,8 @@
                 <div class="instructions-section">
                     <h3>操作方式</h3>
                     <ul>
-                        <li><strong>电脑：</strong>WASD/方向键移动，J/K释放技能</li>
-                        <li><strong>手机：</strong>左下角虚拟摇杆移动，右下角技能按钮</li>
+                        <li><strong>电脑：</strong>WASD/方向键移动，或按住鼠标向光标移动，J/K释放技能</li>
+                        <li><strong>手机：</strong>手指触摸屏幕，角色向触摸位置移动，右下角技能按钮</li>
                         <li>自动射击，无需手动开火</li>
                         <li>ESC键可暂停游戏</li>
                     </ul>
