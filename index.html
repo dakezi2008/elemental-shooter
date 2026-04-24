@@ -1144,7 +1144,10 @@
             <div class="leaderboard-content">
                 <h2>🏆 排行榜</h2>
                 <div class="leaderboard-list" id="modalLeaderboardList"></div>
-                <button class="menu-btn btn-secondary" onclick="hideLeaderboard()">关闭</button>
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
+                    <button class="menu-btn btn-secondary" onclick="hideLeaderboard()">关闭</button>
+                    <button class="menu-btn btn-secondary" onclick="resetLeaderboard()" style="background: rgba(255, 107, 107, 0.3);">重置排行榜</button>
+                </div>
             </div>
         </div>
     </div>
